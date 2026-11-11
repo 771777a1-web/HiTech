@@ -1,0 +1,11 @@
+# Example route. Replace coordinates with the competition test area.
+name: example_route
+frame: global            # global (lat/lon) or local (x/y metres from takeoff)
+cruise_speed_mps: 2.0
+altitude_m: 10.0
+waypoints:
+  - { x: 0.0, y: 0.0 }
+  - { x: 10.0, y: 0.0 }
+  - { x: 10.0, y: 10.0 }
+  - { x: 0.0, y: 10.0 }
+on_complete: return_home
