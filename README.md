@@ -12,10 +12,10 @@ that shows detections on a map and logs every event. On operator command it retu
 
 | Area | Status |
 |---|---|
-| Autonomous route flight | ⬜ Not started |
-| Thermal camera capture | ⬜ Not started |
-| Flame detection (mAP@0.5 ≥ 85%) | ⬜ Not started |
-| Additional object detection | ⬜ Not started |
+| Autonomous route flight | Started |
+| Thermal camera capture | Started |
+| Flame detection (mAP@0.5 ≥ 85%) | Progress |
+| Additional object detection | Progress |
 | Onboard inference ≥ 10 FPS | ⬜ Not started |
 | Object geolocation (error ≤ 0.5 m) | ⬜ Not started |
 | Web map + event log | ⬜ Not started |
