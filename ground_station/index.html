@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Airael Ground Station</title>
+<style>
+  :root{
+    --bg:#0f1316; --panel:#171d21; --panel2:#1d252a; --line:#2a343a; --text:#e6ecef; --muted:#8c9aa3;
+    --accent:#3fa7ff; --ok:#36c08a; --warn:#f0b43c; --bad:#ef5a4f; --fire:#ff6a2a; --person:#b48cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
+  header .sp{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:12px;white-space:nowrap}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+  input,select,button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+  input{width:100%} input:focus,select:focus{outline:1px solid var(--accent)}
+  button{cursor:pointer;padding:7px 10px;font-weight:500}
+  button:hover{border-color:var(--accent)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:#1d4f7a;border-color:#2b6fa8}
+  button.danger{background:#5a1f1c;border-color:#8a2f2a}
+  button.confirm{background:var(--warn);color:#1a1300;border-color:var(--warn)}
+  main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(340px,1fr);grid-template-rows:minmax(0,1fr) 210px;gap:10px;padding:10px;height:calc(100% - 47px)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0;min-width:0}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0;padding:8px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .card h2 .sp{flex:1}
+  .card h2 select{padding:2px 6px;font-size:12px;text-transform:none;letter-spacing:0}
+  .card h2 .note{text-transform:none;letter-spacing:0}
+  #mapCard{grid-row:1}
+  #mapWrap{position:relative;flex:1;min-height:0}
+  #map{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+  #cursor{position:absolute;right:10px;bottom:8px;font:12px var(--mono);color:var(--muted);background:rgba(15,19,22,.75);padding:2px 6px;border-radius:4px}
+  #side{grid-row:1 / span 2;grid-column:2;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+  #side>.card{flex-shrink:0}
+  #camBox{position:relative;background:#000;height:min(36vh,340px);display:flex;align-items:center;justify-content:center}
+  #cam{max-width:100%;max-height:100%;image-rendering:pixelated;width:100%;height:100%;object-fit:contain}
+  #camOver{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  #camMsg{position:absolute;color:var(--muted);font-size:12px;text-align:center;padding:10px}
+  #camMsg.over{left:8px;top:8px;background:rgba(15,19,22,.8);color:var(--warn);border-radius:4px;padding:3px 8px}
+  #camFps{color:var(--text);font-weight:600;margin-right:8px}
+  #camSrc{font:11px var(--mono);color:var(--muted);padding:4px 10px;border-top:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line)}
+  .kv{background:var(--panel);padding:6px 10px}
+  .kv .k{font-size:11px;color:var(--muted)} .kv .v{font:600 14px var(--mono)}
+  .ctl{padding:10px 12px;display:grid;gap:8px}
+  .row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:end}
+  .row label{font-size:11px;color:var(--muted);display:block;margin-bottom:3px}
+  .btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .btns4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  #rtStatus{font:12px var(--mono);color:var(--text)}
+  #rtSummary{font:12px var(--mono)}
+  .note{font-size:12px;color:var(--muted)}
+  #bottom{grid-column:1;grid-row:2;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px;min-height:0}
+  .scroll{overflow:auto;flex:1;min-height:0}
+  table{width:100%;border-collapse:collapse;font:12px var(--mono)}
+  th{position:sticky;top:0;background:var(--panel2);color:var(--muted);text-align:left;font-weight:500;padding:5px 8px}
+  td{padding:4px 8px;border-top:1px solid var(--line);white-space:nowrap}
+  #cmdlog div{font:12px var(--mono);padding:3px 10px;border-top:1px solid var(--line)}
+  #cmdlog .err{color:var(--bad)} #cmdlog .ok{color:var(--ok)} #cmdlog .info{color:var(--muted)}
+  .tag{padding:1px 6px;border-radius:4px;font-size:11px}
+  .tabs{display:flex;gap:4px}
+  .tab{background:transparent;border:1px solid transparent;color:var(--muted);padding:5px 14px;border-radius:6px;font-weight:600}
+  .tab.on{background:var(--panel2);border-color:var(--line);color:var(--text)}
+  .tab .rec{display:none;width:8px;height:8px;border-radius:50%;background:var(--bad);margin-left:7px;vertical-align:1px}
+  .tab.recording .rec{display:inline-block;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.15}}
+  .hidden{display:none!important}
+  .tab .badge{margin-left:6px;font-size:11px;color:var(--warn)}
+  #viewDetections{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;padding:10px;overflow:auto;align-content:start}
+  .gcard{background:var(--panel2);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+  .gcard .im{position:relative;background:#000;aspect-ratio:4/3}
+  .gcard .im img.main{width:100%;height:100%;object-fit:contain;display:block;cursor:zoom-in}
+  .gcard .im img.th{position:absolute;right:6px;bottom:6px;width:32%;border:1px solid var(--line);border-radius:4px;image-rendering:pixelated;cursor:zoom-in}
+  .gcard .cap{padding:8px 10px;font:12px var(--mono);display:grid;gap:3px}
+  #viewDataset{grid-template-columns:minmax(0,1.3fr) minmax(380px,1fr);grid-template-rows:minmax(0,1fr)}
+  #dsLeft,#dsRight{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+  #dsLeft>.card,#dsRight>.card{flex-shrink:0}
+  .prev{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+  .prev figure{margin:0;background:#000;position:relative;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;min-width:0}
+  .prev img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
+  .prev figcaption{position:absolute;left:6px;bottom:5px;font:11px var(--mono);color:var(--muted);background:rgba(15,19,22,.8);padding:1px 6px;border-radius:4px}
+  #dsFlight{font:12px var(--mono);color:var(--muted);padding:6px 12px;border-top:1px solid var(--line)}
+  .labels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .labels button{padding:16px 10px;font-size:16px;font-weight:600;position:relative}
+  .labels button .k{position:absolute;left:8px;top:6px;font:11px var(--mono);color:var(--muted)}
+  .labels button.on{background:#6e2418;border-color:var(--fire);color:#fff}
+  #dsTimer{font:700 46px var(--mono);letter-spacing:1px;min-width:150px}
+  #dsRec{font:12px var(--mono);line-height:1.5}
+  #dsWarn{font-size:12px;color:var(--warn)}
+  .bars{padding:10px 12px;display:grid;gap:6px}
+  .bar{display:grid;grid-template-columns:110px 1fr 48px;gap:8px;align-items:center;font:12px var(--mono)}
+  .bar .b{height:12px;background:var(--panel2);border-radius:3px;overflow:hidden}
+  .bar .b i{display:block;height:100%}
+  .bad{color:var(--bad)}
+  @media (max-width:1000px){#viewDataset{grid-template-columns:1fr;height:auto}#dsLeft,#dsRight{overflow:visible}}
+  @media (max-width:1000px){main{grid-template-columns:1fr;grid-template-rows:60vh auto auto;height:auto}#side{grid-column:1;grid-row:2}#bottom{grid-column:1;grid-row:3;grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Airael · Forest-fire monitoring ground station</h1>
+  <span class="note" id="ver"></span>
+  <nav class="tabs"><button class="tab on" id="tabFlight">Flight</button><button class="tab" id="tabDataset">Dataset<span class="rec"></span></button><button class="tab" id="tabDetections">Detections<span class="badge" id="gcBadge"></span></button></nav>
+  <span class="pill"><span id="linkDot" class="dot"></span><span id="linkTxt">Disconnected</span></span>
+  <span class="pill"><span id="fcuDot" class="dot"></span><span id="fcuTxt">FCU —</span></span>
+  <span class="pill" id="detPill"><span id="detDot" class="dot"></span><span id="detTxt">Detector —</span></span>
+  <span class="sp"></span>
+  <label class="note" for="host">Drone</label>
+  <input id="host" style="width:140px" spellcheck="false">
+  <button id="connectBtn">Connect</button>
+</header>
+
+<main id="viewFlight">
+  <section class="card" id="mapCard">
+    <h2>Map · ArUco field 7.5 × 4.5 m <span class="sp"></span>
+      <span class="note">Click to set a target</span>
+      <button id="clearTrail" style="padding:3px 8px;font-size:12px">Clear trail</button>
+    </h2>
+    <div id="mapWrap"><canvas id="map"></canvas><div id="cursor">x —  y —</div></div>
+  </section>
+
+  <div id="side">
+    <section class="card">
+      <h2>Camera <span class="sp"></span>
+        <select id="camMode" title="Auto: JPEG over rosbridge if the camera has a compressed topic, otherwise snapshots (Firefox) or MJPEG stream.&#10;JPEG: ready-made compressed frames over rosbridge (no extra encoding on the drone).&#10;Stream: MJPEG from web_video_server.&#10;Snapshots: still images fetched one after another.">
+          <option value="auto">Auto</option><option value="jpeg">JPEG</option><option value="stream">Stream</option><option value="snapshot">Snapshots</option>
+        </select>
+        <select id="camRate" title="Maximum frame rate requested from the drone">
+          <option value="5">5 fps</option><option value="10">10 fps</option><option value="15">15 fps</option><option value="30">max fps</option>
+        </select>
+        <select id="camSel" style="max-width:180px"></select>
+      </h2>
+      <div id="camBox"><img id="cam" alt=""><canvas id="camOver"></canvas><div id="camMsg">No stream</div></div>
+      <div id="camSrc"><span id="camFps"></span><span id="camSrcTxt">—</span></div>
+    </section>
+
+    <section class="card">
+      <h2>Status <span class="sp"></span><span id="posSrc" class="note"></span></h2>
+      <div class="grid">
+        <div class="kv"><div class="k">Mode</div><div class="v" id="sMode">—</div></div>
+        <div class="kv"><div class="k">Armed</div><div class="v" id="sArmed">—</div></div>
+        <div class="kv"><div class="k">Battery</div><div class="v" id="sBat">—</div></div>
+        <div class="kv"><div class="k">x (m)</div><div class="v" id="sX">—</div></div>
+        <div class="kv"><div class="k">y (m)</div><div class="v" id="sY">—</div></div>
+        <div class="kv"><div class="k">z (m)</div><div class="v" id="sZ">—</div></div>
+        <div class="kv"><div class="k">Heading</div><div class="v" id="sYaw">—</div></div>
+        <div class="kv"><div class="k">Markers seen</div><div class="v" id="sMk">—</div></div>
+        <div class="kv"><div class="k">Task</div><div class="v" id="sTask">idle</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Control</h2>
+      <div class="ctl">
+        <div class="row">
+          <div><label for="tx">Target x (m)</label><input id="tx" type="number" step="0.05" value="0"></div>
+          <div><label for="ty">Target y (m)</label><input id="ty" type="number" step="0.05" value="0"></div>
+          <div><label for="alt">Altitude (m)</label><input id="alt" type="number" step="0.1" value="1.5"></div>
+          <div><label for="spd">Speed (m/s)</label><input id="spd" type="number" step="0.1" value="0.5"></div>
+        </div>
+        <div class="btns">
+          <button id="bTakeoff" class="primary">Take off</button>
+          <button id="bGo" class="primary">Fly to target</button>
+          <button id="bHold">Hold position</button>
+          <button id="bHome">Return home</button>
+          <button id="bLand" class="danger">Land</button>
+          <button id="bSetHome">Set home = target</button>
+        </div>
+        <div class="note" id="fenceNote"></div>
+        <div class="note">The RC kill switch is the emergency stop. This page never replaces it.</div>
+      </div>
+    </section>
+
+    <section class="card" id="routeCard">
+      <h2>Route <span class="note" id="rtCount"></span><span class="sp"></span>
+        <label class="note" style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="rtEdit" style="width:auto;margin:0"> Click map adds waypoint</label>
+      </h2>
+      <div class="ctl">
+        <div style="display:flex;gap:8px"><input id="rtIds" placeholder="Marker IDs in order, e.g. 100 104 108 144" spellcheck="false"><button id="rtSetIds">Set</button></div>
+        <div class="btns4">
+          <button id="rtCorners" title="Four corner markers: 100, 108, 144, 136">Corners</button>
+          <button id="rtSnake" title="Every other column, rows 1, 3, 5: 100 104 108 126 122 118 136 140 144">Snake</button>
+          <button id="rtUndo">Undo</button>
+          <button id="rtClear">Clear</button>
+        </div>
+        <div class="row">
+          <div><label for="rtDwell">Hold at each (s)</label><input id="rtDwell" type="number" step="0.5" min="0.5" value="1.5"></div>
+          <div><label for="rtTol">Arrived within (m)</label><input id="rtTol" type="number" step="0.05" min="0.05" max="0.3" value="0.15"></div>
+          <div style="grid-column:span 2"><label for="rtEnd">At the end</label>
+            <select id="rtEnd" style="width:100%"><option value="rth">Return home and land</option><option value="land">Land at last waypoint</option><option value="hover">Hover at last waypoint</option></select></div>
+        </div>
+        <div class="row">
+          <label class="note" style="grid-column:span 2;display:flex;gap:6px;align-items:center;cursor:pointer" title="When a bonfire is found during the route: fly over it, take a photo (Detections tab), then continue the route"><input type="checkbox" id="rtInsOn" style="width:auto;margin:0"> Inspect bonfires found on the way</label>
+          <div><label for="rtInsAlt">Inspect alt (m)</label><input id="rtInsAlt" type="number" step="0.1" min="0.5" max="2.5" value="1.0"></div>
+          <div><label for="rtInsHold">Hold, then photo (s)</label><input id="rtInsHold" type="number" step="0.5" min="0.5" value="2"></div>
+        </div>
+        <div class="note" style="display:flex;gap:8px;align-items:center">Each bonfire is photographed once (same object, or within 1 m of an earlier photo). <button id="rtInsForget" style="padding:2px 8px;font-size:11px">Forget inspected</button></div>
+        <div class="btns">
+          <button id="rtStart" class="primary">Start route</button>
+          <button id="rtPause">Pause</button>
+          <button id="rtResume">Resume</button>
+        </div>
+        <div id="rtStatus">No route</div>
+        <div id="rtSummary" class="note"></div>
+        <div class="note">Uses the altitude and speed fields above. Start from the ground takes off by itself. Pass = mean error over the hold ≤ 0.30 m (MC1).</div>
+      </div>
+      <div class="scroll" style="max-height:230px"><table>
+        <thead><tr><th>#</th><th>Marker</th><th>x</th><th>y</th><th>Result</th><th>Error</th><th>Max</th><th>Leg (s)</th></tr></thead>
+        <tbody id="rtBody"></tbody>
+      </table></div>
+      <div style="padding:8px 12px;display:flex;gap:8px"><button id="rtCsv" style="padding:3px 8px;font-size:12px">Download route log</button></div>
+    </section>
+  </div>
+
+  <div id="bottom">
+    <section class="card">
+      <h2>Event log (<span id="evCount">0</span>) <span class="sp"></span>
+        <button id="evCsv" style="padding:3px 8px;font-size:12px">Download CSV</button>
+      </h2>
+      <div class="scroll"><table>
+        <thead><tr><th>Time</th><th>Type</th><th>Confidence</th><th>x (m)</th><th>y (m)</th><th>Latency (s)</th></tr></thead>
+        <tbody id="evBody"></tbody>
+      </table></div>
+    </section>
+    <section class="card">
+      <h2>Command log <span class="sp"></span>
+        <button id="cmdCsv" style="padding:3px 8px;font-size:12px">Download</button>
+      </h2>
+      <div class="scroll" id="cmdlog"></div>
+    </section>
+  </div>
+</main>
+
+<main id="viewDetections" class="hidden">
+  <section class="card">
+    <h2>Detections photographed <span class="note" id="gcCount"></span><span class="sp"></span><span class="note" id="gcInfo"></span>
+      <button id="gcSnap" style="padding:3px 10px;font-size:12px">Capture now</button></h2>
+    <div class="gallery scroll" id="gcGrid"></div>
+  </section>
+</main>
+
+<main id="viewDataset" class="hidden">
+  <div id="dsLeft">
+    <section class="card">
+      <h2>Live view <span class="sp"></span><span class="note">thermal is saved raw (PNG), RGB as a time-matched pair</span></h2>
+      <div class="prev">
+        <figure><img id="dsThermal" alt=""><figcaption id="dsThermalSrc">thermal</figcaption></figure>
+        <figure><img id="dsRgb" alt=""><figcaption id="dsRgbSrc">downward RGB</figcaption></figure>
+      </div>
+      <div id="dsFlight">—</div>
+    </section>
+    <section class="card">
+      <h2>This session by altitude <span class="sp"></span><span class="note">vary the height: each band should get frames</span></h2>
+      <div class="bars" id="dsBands"></div>
+    </section>
+    <section class="card">
+      <h2>Frames per label <span class="sp"></span><span class="note">all sessions on the drone</span></h2>
+      <div class="bars" id="dsLabels"></div>
+    </section>
+  </div>
+  <div id="dsRight">
+    <section class="card">
+      <h2>Capture <span class="sp"></span><span class="pill"><span id="dsSrvDot" class="dot"></span><span id="dsSrvTxt">dataset server —</span></span></h2>
+      <div class="ctl">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div id="dsTimer">7:00</div>
+          <div style="display:grid;gap:6px;flex:1">
+            <div style="display:flex;gap:6px"><button id="dsTStart">Start timer</button><button id="dsTReset">Reset</button></div>
+            <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="dsAutoStop" checked style="width:auto;margin:0"> stop recording at 0:00</label>
+          </div>
+          <div style="width:72px"><label class="note" for="dsBudget">Minutes</label><input id="dsBudget" type="number" min="1" max="60" step="1" value="7"></div>
+        </div>
+        <div class="note">Click a label to record it (keys 1–4). Another label switches to a new session at once. Stop: S or Esc. The timer starts with the first recording.</div>
+        <div class="labels" id="dsLabelBtns"></div>
+        <div style="display:flex;gap:8px"><input id="dsCustom" placeholder="Other label, e.g. heated_tree" spellcheck="false"><button id="dsCustomBtn">Record</button></div>
+        <button id="dsStop" class="danger" style="padding:12px;font-size:15px;font-weight:600">■ Stop recording</button>
+        <div id="dsRec">Not recording</div>
+        <div id="dsWarn"></div>
+        <div class="row">
+          <div><label for="dsRate">Frames / s</label><input id="dsRate" type="number" min="0.5" max="10" step="0.5" value="2"></div>
+          <div><label for="dsMinAlt">Min alt (m)</label><input id="dsMinAlt" type="number" min="0" step="0.1" value="0.3"></div>
+          <div><label for="dsMaxAlt">Max alt (m)</label><input id="dsMaxAlt" type="number" min="0.5" step="0.1" value="3"></div>
+          <div><label for="dsDiff">Skip similar &lt;</label><input id="dsDiff" type="number" min="0" step="0.5" value="1.5" title="Skip a frame whose thermal image differs from the last saved one by less than this mean grey level (0 = keep all)"></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <label class="note" style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" id="dsRgbOn" checked style="width:auto;margin:0"> save RGB pairs</label>
+          <input id="dsNote" placeholder="Note (optional), e.g. bonfire on, 2 trees, sunny" spellcheck="false">
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Sessions on the drone <span class="sp"></span><span class="note" id="dsFree"></span></h2>
+      <div class="scroll" style="max-height:240px"><table><thead><tr><th>Session</th><th>Label</th><th>Frames</th></tr></thead><tbody id="dsSessions"></tbody></table></div>
+      <div class="ctl"><div class="note">Copy everything to the laptop for labelling (run on the laptop):</div>
+        <div style="display:flex;gap:8px"><input id="dsRsync" readonly spellcheck="false" style="font:12px var(--mono)"><button id="dsCopy">Copy</button></div></div>
+    </section>
+  </div>
+</main>
+
+<script>
+'use strict';
+const VERSION = 'v5 · inspect';
+/* ====================== configuration ====================== */
+const CFG = {
+  rosbridgePort: 9090,
+  videoPort: 8080,
+  frame: 'aruco_map',                 // map frame used for telemetry and navigation
+  srv: { telemetry: '/get_telemetry', navigate: '/navigate', land: '/land', compressedTopics: '/rosapi/topics_for_type' },
+  // fields of Skyris technic/Navigate (rossrv show): anything else is rejected by rosbridge
+  navigateFields: ['x', 'y', 'z', 'yaw', 'speed', 'frame_id', 'auto_arm'],
+  topics: {
+    detections: '/fire/detections',   // std_msgs/String JSON from fire_detector_node.py (pixels)
+    events: '/fire/events',           // std_msgs/String JSON {stamp, class_name, score, x, y} (metres, map frame)
+    markers: '/aruco_detect/markers', // aruco_pose/MarkerArray
+    state: '/mavros/state',
+    battery: '/mavros/battery',
+  },
+  // raw: sensor_msgs/Image (used by web_video_server stream/snapshot)
+  // jpeg: sensor_msgs/CompressedImage candidates, tried in order (sent over rosbridge, no re-encoding)
+  cams: [
+    { name: 'Thermal', raw: '/second_camera/second_camera/image_raw',
+      jpeg: ['/second_camera/second_camera/image_raw/compressed', '/airael/thermal/compressed', '/second_camera/image_web/compressed'] },
+    { name: 'Downward camera + detections', raw: '/main_camera/image_raw',
+      jpeg: ['/main_camera/image_web/compressed', '/main_camera/image_raw/compressed'] },
+    { name: 'ArUco markers seen', raw: '/aruco_detect/debug', jpeg: ['/aruco_detect/debug/compressed'] },
+  ],
+  camNoFrameMs: 3000,                 // no frame for this long: try the next source
+  camStaleMs: 2000,                   // show "last frame N s ago" after this long
+  field: { w: 7.5, h: 4.5 },          // from aruco_map_750x450_id100.txt, origin at field centre
+  marker: { size: 0.25, firstId: 100, cols: 9, rows: 5, pitch: 0.75, x0: -3.0, y0: -1.5 },
+  fence: { margin: 0.4, zMin: 0.5, zMax: 2.5, speedMax: 1.0 },
+  telemetryHz: 5,
+  homeTolerance: 0.15,                // m, horizontal distance at which "Return home" lands
+};
+const MARKERS = [];
+for (let r = 0; r < CFG.marker.rows; r++)
+  for (let c = 0; c < CFG.marker.cols; c++)
+    MARKERS.push({ id: CFG.marker.firstId + r * CFG.marker.cols + c,
+                   x: CFG.marker.x0 + c * CFG.marker.pitch, y: CFG.marker.y0 + r * CFG.marker.pitch });
+
+/* ====================== tiny rosbridge client ====================== */
+class Ros {
+  constructor() { this.ws = null; this.url = null; this.subs = new Map(); this.advs = new Map(); this.pending = new Map(); this.n = 0; this.onstate = () => {}; }
+  get open() { return !!this.ws && this.ws.readyState === 1; }
+  connect(url) {
+    this.url = url;
+    if (this.ws) { this.ws.onclose = null; try { this.ws.close(); } catch (e) {} }
+    let ws;
+    try { ws = new WebSocket(url); } catch (e) { this.onstate(false, String(e)); return; }
+    this.ws = ws;
+    ws.onopen = () => {
+      for (const [topic, type] of this.advs) this._send({ op: 'advertise', topic, type });
+      for (const [topic, s] of this.subs) this._sendSub(topic, s);
+      this.onstate(true);
+    };
+    ws.onclose = () => {
+      this.onstate(false);
+      for (const [, p] of this.pending) p.rej(new Error('connection closed'));
+      this.pending.clear();
+      setTimeout(() => { if (this.url === url) this.connect(url); }, 2000);
+    };
+    ws.onerror = () => {};
+    ws.onmessage = (ev) => {
+      let m;
+      try { m = JSON.parse(ev.data); }
+      catch (e) { // rosbridge may emit NaN / Infinity, which is not valid JSON
+        try { m = JSON.parse(ev.data.replace(/\bNaN\b/g, 'null').replace(/-?\bInfinity\b/g, 'null')); } catch (e2) { return; }
+      }
+      if (m.op === 'publish') { const s = this.subs.get(m.topic); if (s) s.cbs.slice().forEach(cb => cb(m.msg)); }
+      else if (m.op === 'service_response') {
+        const p = this.pending.get(m.id); if (!p) return;
+        this.pending.delete(m.id);
+        if (m.result === false) p.rej(new Error(typeof m.values === 'string' ? m.values : 'service call failed'));
+        else p.res(m.values || {});
+      }
+    };
+  }
+  _send(o) { if (this.open) this.ws.send(JSON.stringify(o)); }
+  _sendSub(topic, s) { this._send({ op: 'subscribe', topic, type: s.type, throttle_rate: s.throttle, queue_length: 1 }); }
+  subscribe(topic, type, cb, throttle = 0) {
+    let s = this.subs.get(topic);
+    if (!s) { s = { type, throttle, cbs: [] }; this.subs.set(topic, s); if (this.open) this._sendSub(topic, s); }
+    s.cbs.push(cb);
+  }
+  advertise(topic, type) { if (!this.advs.has(topic)) { this.advs.set(topic, type); this._send({ op: 'advertise', topic, type }); } }
+  publish(topic, msg) { this._send({ op: 'publish', topic, msg }); }
+  unsubscribe(topic, cb) {
+    const s = this.subs.get(topic); if (!s) return;
+    s.cbs = s.cbs.filter(f => f !== cb);
+    if (!s.cbs.length) { this.subs.delete(topic); this._send({ op: 'unsubscribe', topic }); }
+  }
+  call(service, args, timeout = 3000) {
+    return new Promise((res, rej) => {
+      if (!this.open) return rej(new Error('not connected'));
+      const id = 'c' + (++this.n);
+      this.pending.set(id, { res, rej });
+      setTimeout(() => { if (this.pending.has(id)) { this.pending.delete(id); rej(new Error('timeout')); } }, timeout);
+      this._send({ op: 'call_service', id, service, args });
+    });
+  }
+}
+
+/* ====================== state ====================== */
+const S = {
+  link: false, tel: null, telOk: false, telFails: 0, telBusy: false, telAt: 0,
+  mav: { connected: false, armed: false, mode: '—' }, bat: null, markers: null,
+  trail: [], target: { x: 0, y: 0 }, home: null,
+  det: { times: [], last: null, lastAt: 0 }, events: [], cmds: [],
+  task: 'idle', // idle | rth
+  jpegTopics: null, // Set of sensor_msgs/CompressedImage topics on the drone, null = unknown
+  cam: { gen: 0, timer: null, stop: null, kind: '' },
+};
+const $ = id => document.getElementById(id);
+const ros = new Ros();
+const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const fmt = (v, d = 2) => (typeof v === 'number' && Number.isFinite(v)) ? v.toFixed(d) : '—';
+const nowStr = (t = Date.now()) => new Date(t).toLocaleTimeString([], { hour12: false }) + '.' + String(new Date(t).getMilliseconds()).padStart(3, '0');
+$('ver').textContent = VERSION;
+
+function log(text, kind = 'info') {
+  const t = Date.now();
+  S.cmds.push({ t, text, kind });
+  const d = document.createElement('div');
+  d.className = kind; d.textContent = nowStr(t) + '  ' + text;
+  const box = $('cmdlog'); box.prepend(d);
+  while (box.childElementCount > 300) box.lastChild.remove();
+}
+
+/* ====================== connection ====================== */
+function hostDefault() {
+  const q = new URLSearchParams(location.search).get('host');
+  if (q) return q;
+  const saved = store.get('airael.host', '');
+  if (saved) return saved;
+  if (location.protocol.startsWith('http') && location.hostname) return location.hostname;
+  return '10.42.0.1';
+}
+$('host').value = hostDefault();
+function connect() {
+  const host = $('host').value.trim();
+  store.set('airael.host', host);
+  log('Connecting to ws://' + host + ':' + CFG.rosbridgePort);
+  S.jpegTopics = null;
+  ros.connect('ws://' + host + ':' + CFG.rosbridgePort);
+  setCamera();
+}
+$('connectBtn').onclick = connect;
+$('host').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
+ros.onstate = (up) => {
+  const changed = up !== S.link;
+  if (changed) log(up ? 'rosbridge connected' : 'rosbridge disconnected', up ? 'ok' : 'err');
+  S.link = up; S.telFails = 0; renderStatus();
+  if (up && changed) discoverJpeg().then(() => { setCamera(); dsPreviews(); });
+};
+
+/* ====================== subscriptions ====================== */
+ros.subscribe(CFG.topics.state, 'mavros_msgs/State', m => { S.mav = { connected: !!m.connected, armed: !!m.armed, mode: m.mode || '—' }; }, 200);
+ros.subscribe(CFG.topics.battery, 'sensor_msgs/BatteryState', m => { S.bat = m; }, 1000);
+ros.subscribe(CFG.topics.markers, 'aruco_pose/MarkerArray', m => { S.markers = (m.markers || []).length; S.markersAt = Date.now(); }, 300);
+ros.subscribe(CFG.topics.detections, 'std_msgs/String', m => {
+  const t = Date.now(); S.det.times.push(t);
+  try {
+    const p = JSON.parse(m.data);
+    S.det.frame = p; S.det.frameAt = t;
+    if (p.detections && p.detections.length) { S.det.last = p.detections[0]; S.det.lastAt = t; }
+  } catch (e) {}
+});
+// draw the detector's boxes over the live camera picture when the picture has the detector's image size
+// (so it appears on the view of the camera the detector is using; no /fire/annotated needed)
+function drawCamOverlay() {
+  const cvs = $('camOver'), img = $('cam'), box = $('camBox');
+  const W = box.clientWidth, H = box.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (cvs.width !== Math.round(W * dpr) || cvs.height !== Math.round(H * dpr)) { cvs.width = Math.round(W * dpr); cvs.height = Math.round(H * dpr); }
+  const c = cvs.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  const f = S.det.frame, nw = img.naturalWidth, nh = img.naturalHeight;
+  if (f && f.width && nw && img.getAttribute('src') && Date.now() - S.det.frameAt < 700 &&
+      Math.abs(f.width - nw) <= 2 && Math.abs(f.height - nh) <= 2) {   // same camera: same image size
+    const sc = Math.min(W / nw, H / nh), ox = (W - nw * sc) / 2, oy = (H - nh * sc) / 2, k = nw / f.width * sc;
+    c.font = '600 12px system-ui'; c.textBaseline = 'bottom';
+    for (const d of f.detections || []) {
+      const [x1, y1, x2, y2] = d.bbox, col = clsColor(d.class_name);
+      c.strokeStyle = col; c.lineWidth = 2; c.strokeRect(ox + x1 * k, oy + y1 * k, (x2 - x1) * k, (y2 - y1) * k);
+      const label = d.class_name + ' ' + (+d.score).toFixed(2), tw = c.measureText(label).width + 8, ty = Math.max(16, oy + y1 * k);
+      c.fillStyle = col; c.fillRect(ox + x1 * k - 1, ty - 16, tw, 16);
+      c.fillStyle = '#111'; c.fillText(label, ox + x1 * k + 3, ty - 2);
+    }
+    c.fillStyle = 'rgba(15,19,22,.75)'; c.fillRect(W - 128, 6, 122, 18);
+    c.fillStyle = '#e6ecef'; c.font = '11px ' + getVar('--mono'); c.textBaseline = 'top';
+    c.fillText('detector ' + (S.det.times.length / 2).toFixed(1) + ' FPS', W - 122, 9);
+  }
+  requestAnimationFrame(drawCamOverlay);
+}
+requestAnimationFrame(drawCamOverlay);
+ros.subscribe(CFG.topics.events, 'std_msgs/String', m => {
+  let e; try { e = JSON.parse(m.data); } catch (err) { return; }
+  const rx = Date.now() / 1000;
+  const ev = { stamp: +e.stamp, cls: e.class_name || e.type || '?', score: +e.score, x: +e.x, y: +e.y, rx, lat: e.stamp ? rx - e.stamp : NaN,
+               id: e.id ?? null, kind: e.kind || '', hits: e.hits ?? '', spread: e.spread ?? '' };
+  S.events.push(ev); addEventRow(ev);
+  inspectConsider(ev);
+});
+
+/* ====================== telemetry ====================== */
+async function pollTelemetry() {
+  if (!ros.open || S.telBusy) return;
+  S.telBusy = true;
+  try {
+    const t = await ros.call(CFG.srv.telemetry, { frame_id: CFG.frame }, 1500);
+    S.tel = t; S.telOk = true; S.telFails = 0; S.telAt = Date.now();
+    if (Number.isFinite(t.x) && Number.isFinite(t.y)) S.lastPos = { x: t.x, y: t.y, z: t.z, at: S.telAt };
+    if (Number.isFinite(t.x) && Number.isFinite(t.y)) {
+      const last = S.trail[S.trail.length - 1];
+      if (!last || Math.hypot(last.x - t.x, last.y - t.y) > 0.02) { S.trail.push({ x: t.x, y: t.y }); if (S.trail.length > 600) S.trail.shift(); }
+    }
+    checkRth();
+    routeTick();
+  } catch (e) {
+    S.telFails++;
+    if (S.telFails === 3) log('get_telemetry failing: ' + e.message + ' (check service ' + CFG.srv.telemetry + ')', 'err');
+    if (S.telFails >= 3) S.telOk = false;
+  } finally { S.telBusy = false; }
+}
+setInterval(pollTelemetry, 1000 / CFG.telemetryHz);
+
+/* ====================== status rendering ====================== */
+function setDot(el, cls) { el.className = 'dot' + (cls ? ' ' + cls : ''); }
+function renderStatus() {
+  setDot($('linkDot'), S.link ? 'ok' : 'bad');
+  $('linkTxt').textContent = S.link ? 'rosbridge ' + $('host').value : 'Disconnected';
+  const t = S.telOk ? S.tel : null;
+  const connected = t ? t.connected : S.mav.connected, armed = t ? t.armed : S.mav.armed, mode = (t && t.mode) || S.mav.mode;
+  setDot($('fcuDot'), !S.link ? '' : connected ? 'ok' : 'bad');
+  $('fcuTxt').textContent = !S.link ? 'FCU —' : connected ? 'FCU connected' : 'FCU not connected';
+  $('sMode').textContent = mode || '—';
+  $('sArmed').textContent = armed ? 'ARMED' : 'disarmed';
+  $('sArmed').style.color = armed ? 'var(--warn)' : '';
+  let v = t && Number.isFinite(t.voltage) ? t.voltage : (S.bat && Number.isFinite(S.bat.voltage) ? S.bat.voltage : NaN);
+  let cell = t && Number.isFinite(t.cell_voltage) ? t.cell_voltage : NaN;
+  $('sBat').textContent = Number.isFinite(v) ? v.toFixed(1) + ' V' + (Number.isFinite(cell) ? ' (' + cell.toFixed(2) + ')' : '') : '—';
+  $('sX').textContent = fmt(t && t.x); $('sY').textContent = fmt(t && t.y); $('sZ').textContent = fmt(t && t.z);
+  $('sYaw').textContent = t && Number.isFinite(t.yaw) ? (t.yaw * 180 / Math.PI).toFixed(0) + '°' : '—';
+  const mkFresh = S.markersAt && Date.now() - S.markersAt < 2000;
+  $('sMk').textContent = mkFresh ? S.markers : '—';
+  $('sTask').textContent = S.task === 'rth' ? 'returning' : S.task === 'route' ? 'route ' + Math.max(1, R.i + 1) + '/' + R.wps.length + (R.state === 'paused' ? ' ‖' : '') : 'idle';
+  $('posSrc').textContent = S.telOk ? 'frame ' + CFG.frame : (S.link ? 'no telemetry' : '');
+  // detector rate over the last 2 s
+  const now = Date.now(); S.det.times = S.det.times.filter(x => now - x < 2000);
+  const fps = S.det.times.length / 2;
+  setDot($('detDot'), fps >= 10 ? 'ok' : fps > 0 ? 'warn' : '');
+  let dt = 'Detector ' + (fps ? fps.toFixed(1) + ' FPS' : 'off');
+  if (S.det.last && now - S.det.lastAt < 3000) dt += ' · ' + S.det.last.class_name + ' ' + (+S.det.last.score).toFixed(2);
+  $('detTxt').textContent = dt;
+  // buttons
+  const can = S.link && connected;
+  ['bTakeoff', 'bGo', 'bHold', 'bHome', 'bLand'].forEach(id => $(id).disabled = !can);
+  if (!S.home) $('bHome').disabled = true;
+  renderRouteStatus();
+}
+setInterval(renderStatus, 250);
+
+/* ====================== camera ====================== */
+// Firefox often shows only the first frame of web_video_server's MJPEG stream, so Auto never uses MJPEG there.
+const IS_FIREFOX = /firefox/i.test(navigator.userAgent);
+CFG.cams.forEach(c => { const o = document.createElement('option'); o.value = c.raw; o.textContent = c.name; $('camSel').appendChild(o); });
+$('camSel').value = store.get('airael.cam', CFG.cams[1].raw);   // default: downward RGB camera with the detector's boxes
+if (!$('camSel').value) $('camSel').value = CFG.cams[1].raw;
+$('camMode').value = store.get('airael.camMode', 'auto');
+if (!$('camMode').value) $('camMode').value = 'auto';
+$('camRate').value = store.get('airael.camRate', '15');
+if (!$('camRate').value) $('camRate').value = '15';
+$('camSel').onchange = () => { store.set('airael.cam', $('camSel').value); setCamera(); };
+$('camMode').onchange = () => { store.set('airael.camMode', $('camMode').value); setCamera(); };
+$('camRate').onchange = () => { store.set('airael.camRate', $('camRate').value); setCamera(); };
+const curCam = () => CFG.cams.find(c => c.raw === $('camSel').value) || CFG.cams[0];
+const camMaxFps = () => +$('camRate').value || 15;
+const videoBase = () => 'http://' + $('host').value.trim() + ':' + CFG.videoPort;
+
+// Which sensor_msgs/CompressedImage topics exist on the drone (rosapi). Unknown = try all candidates.
+async function discoverJpeg() {
+  if (!ros.open) return;
+  try {
+    const r = await ros.call(CFG.srv.compressedTopics, { type: 'sensor_msgs/CompressedImage' }, 3000);
+    const next = new Set(r.topics || []);
+    const before = S.jpegTopics ? [...S.jpegTopics].sort().join(',') : null;
+    S.jpegTopics = next;
+    if (before !== null && before !== [...next].sort().join(',')) {
+      log('Compressed camera topics changed: ' + ([...next].join(', ') || 'none'), 'info');
+      // a better source may have appeared: retry Auto if it is currently on a fallback
+      if ($('camMode').value === 'auto' && S.cam.kind !== 'jpeg') setCamera();
+      dsPreviews();
+    }
+  } catch (e) { /* rosapi missing or slow: keep the previous list */ }
+}
+setInterval(discoverJpeg, 15000);
+
+function camMessage(text, overlay = false) {
+  const m = $('camMsg');
+  if (!text) { m.style.display = 'none'; return; }
+  m.textContent = text; m.className = overlay ? 'over' : ''; m.style.display = '';
+}
+function stopCamera() {
+  clearInterval(S.cam.timer); S.cam.timer = null;
+  if (S.cam.stop) { try { S.cam.stop(); } catch (e) {} S.cam.stop = null; }
+  $('cam').onerror = null;
+  $('cam').removeAttribute('src');   // also closes an open MJPEG connection
+  S.cam.kind = '';
+}
+// Shows the achieved frame rate and a "stale" overlay; calls onNoFrame once if nothing arrives at all.
+function camMonitor(gen, label, counter, onNoFrame) {
+  const t0 = Date.now(); let tPrev = t0, nPrev = 0, gaveUp = false;
+  S.cam.timer = setInterval(() => {
+    if (gen !== S.cam.gen) return;
+    const now = Date.now();
+    const fps = (counter.n - nPrev) * 1000 / (now - tPrev); nPrev = counter.n; tPrev = now;
+    $('camFps').textContent = fps.toFixed(1) + ' fps';
+    if (!counter.n) {
+      if (!gaveUp && now - t0 > CFG.camNoFrameMs && (ros.open || label !== 'JPEG')) { gaveUp = true; onNoFrame && onNoFrame(); }
+    } else if (now - counter.at > CFG.camStaleMs) {
+      camMessage('No new frame for ' + ((now - counter.at) / 1000).toFixed(0) + ' s', true);
+    } else camMessage('');
+  }, 1000);
+}
+
+function setCamera() {
+  stopCamera();
+  const gen = ++S.cam.gen, cam = curCam(), want = $('camMode').value;
+  $('camFps').textContent = '';
+  if (document.hidden) { camMessage('Paused while the tab is hidden'); $('camSrcTxt').textContent = '—'; return; }
+  if (S.view !== 'flight') { camMessage('Paused while another tab is open'); $('camSrcTxt').textContent = '—'; return; }
+  if (want === 'stream') return startStream(gen, cam);
+  if (want === 'snapshot') return startSnapshots(gen, cam);
+  // auto / jpeg
+  if (!ros.open) { camMessage('Waiting for rosbridge …'); $('camSrcTxt').textContent = '—'; return; }
+  const cands = cam.jpeg.filter(t => !S.jpegTopics || S.jpegTopics.has(t));
+  if (cands.length) return startJpeg(gen, cam, cands, 0);
+  if (want === 'jpeg') {
+    camMessage('No compressed topic for ' + cam.name + ' on the drone. Tried: ' + cam.jpeg.join(', '));
+    $('camSrcTxt').textContent = 'JPEG · none available';
+    return;
+  }
+  camFallback(gen, cam);
+}
+function camFallback(gen, cam) {
+  if (gen !== S.cam.gen) return;
+  stopCamera(); const g = ++S.cam.gen;
+  if (IS_FIREFOX) startSnapshots(g, cam); else startStream(g, cam);
+}
+
+// sensor_msgs/CompressedImage over rosbridge: data arrives base64-encoded
+function b64(data) {
+  if (typeof data === 'string') return data;
+  let s = ''; const a = data || [];
+  for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.slice(i, i + 0x8000));
+  return btoa(s);
+}
+function startJpeg(gen, cam, cands, i) {
+  const topic = cands[i], fps = camMaxFps(), throttle = fps >= 30 ? 0 : Math.round(1000 / fps);
+  const img = $('cam'), counter = { n: 0, at: 0 };
+  S.cam.kind = 'jpeg';
+  camMessage('Waiting for ' + topic + ' …');
+  $('camSrcTxt').textContent = 'JPEG via rosbridge · ' + topic;
+  const cb = m => {
+    if (gen !== S.cam.gen || !m || !m.data) return;
+    counter.n++; counter.at = Date.now();
+    const mime = /png/i.test(m.format || '') ? 'image/png' : 'image/jpeg';
+    img.src = 'data:' + mime + ';base64,' + b64(m.data);
+    if (counter.n === 1) camMessage('');
+  };
+  ros.subscribe(topic, 'sensor_msgs/CompressedImage', cb, throttle);
+  S.cam.stop = () => ros.unsubscribe(topic, cb);
+  camMonitor(gen, 'JPEG', counter, () => {
+    if (gen !== S.cam.gen) return;
+    stopCamera();
+    const g = ++S.cam.gen;
+    if (i + 1 < cands.length) { log('Camera: no frames on ' + topic + ', trying ' + cands[i + 1], 'info'); startJpeg(g, cam, cands, i + 1); return; }
+    if ($('camMode').value === 'jpeg') { camMessage('No frames on any compressed topic for ' + cam.name); $('camSrcTxt').textContent = 'JPEG · no frames'; return; }
+    log('Camera: no JPEG frames for ' + cam.name + ', falling back to ' + (IS_FIREFOX ? 'snapshots' : 'MJPEG stream'), 'info');
+    if (IS_FIREFOX) startSnapshots(g, cam); else startStream(g, cam);
+  });
+}
+
+function startStream(gen, cam) {
+  const img = $('cam'), base = videoBase(), counter = { n: 0, at: 0 };
+  S.cam.kind = 'stream';
+  camMessage('Waiting for ' + cam.raw + ' …');
+  $('camSrcTxt').textContent = 'MJPEG stream · ' + base + ' · ' + cam.raw;
+  img.onerror = () => { if (gen === S.cam.gen) camMessage('No stream from ' + base + ' for ' + cam.raw); };
+  img.src = base + '/stream?topic=' + encodeURIComponent(cam.raw) + '&type=mjpeg&quality=70&t=' + Date.now();
+  // the browser gives no per-frame event for MJPEG, so only report whether a picture arrived
+  S.cam.timer = setInterval(() => {
+    if (gen !== S.cam.gen) return;
+    if (img.naturalWidth > 0) { counter.n = 1; camMessage(''); $('camFps').textContent = 'live'; }
+  }, 500);
+  setTimeout(() => {
+    if (gen !== S.cam.gen || counter.n) return;
+    if ($('camMode').value === 'stream') return;
+    log('Camera: no MJPEG frames for ' + cam.raw + ', switching to snapshots', 'info');
+    stopCamera(); startSnapshots(++S.cam.gen, cam);
+  }, CFG.camNoFrameMs);
+}
+
+function startSnapshots(gen, cam) {
+  const img = $('cam'), base = videoBase(), counter = { n: 0, at: 0 }, period = 1000 / camMaxFps();
+  let fails = 0;
+  S.cam.kind = 'snapshot';
+  camMessage('Waiting for ' + cam.raw + ' …');
+  $('camSrcTxt').textContent = 'Snapshots · ' + base + ' · ' + cam.raw;
+  camMonitor(gen, 'snapshots', counter, null);
+  const next = () => {
+    if (gen !== S.cam.gen) return;
+    const pic = new Image(), t0 = Date.now();
+    pic.onload = () => {
+      if (gen !== S.cam.gen) return;
+      fails = 0; counter.n++; counter.at = Date.now(); img.src = pic.src;
+      if (counter.n === 1) camMessage('');
+      setTimeout(next, Math.max(0, period - (Date.now() - t0)));
+    };
+    pic.onerror = () => {
+      if (gen !== S.cam.gen) return;
+      if (++fails === 5) camMessage('No image from ' + base + '/snapshot for ' + cam.raw + ' (is the topic publishing? is port ' + CFG.videoPort + ' reachable?)');
+      setTimeout(next, 1000);
+    };
+    pic.src = base + '/snapshot?topic=' + encodeURIComponent(cam.raw) + '&quality=70&t=' + Date.now();
+  };
+  next();
+}
+// stop pulling video while the tab is in the background (saves CPU on the drone)
+document.addEventListener('visibilitychange', () => { setCamera(); dsPreviews(); });
+
+/* ====================== map ====================== */
+const cv = $('map'), ctx = cv.getContext('2d');
+let view = { s: 1, ox: 0, oy: 0 };
+const fenceX = CFG.field.w / 2 - CFG.fence.margin, fenceY = CFG.field.h / 2 - CFG.fence.margin;
+$('fenceNote').textContent = 'Limits: x ±' + fenceX.toFixed(2) + ' m, y ±' + fenceY.toFixed(2) + ' m, altitude ' +
+  CFG.fence.zMin + '–' + CFG.fence.zMax + ' m, speed ≤ ' + CFG.fence.speedMax + ' m/s. Targets outside are clamped.';
+function resize() {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pad = 0.45, W = CFG.field.w + 2 * pad, H = CFG.field.h + 2 * pad;
+  view.s = Math.min(r.width / W, r.height / H); view.ox = r.width / 2; view.oy = r.height / 2;
+}
+const toPx = (x, y) => [view.ox + x * view.s, view.oy - y * view.s];
+const toM = (px, py) => [(px - view.ox) / view.s, -(py - view.oy) / view.s];
+window.addEventListener('resize', resize);
+function clsColor(c) {
+  c = String(c).toLowerCase();
+  return /fire/.test(c) ? getVar('--fire') : c === 'tree' ? getVar('--ok') : c === 'person' ? getVar('--person') : getVar('--accent');
+}
+const cssCache = {}; function getVar(n) { return cssCache[n] || (cssCache[n] = getComputedStyle(document.documentElement).getPropertyValue(n).trim()); }
+
+function draw() {
+  const r = cv.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+  const s = view.s, hw = CFG.field.w / 2, hh = CFG.field.h / 2;
+  // field
+  let [x0, y0] = toPx(-hw, hh);
+  ctx.fillStyle = '#141b1f'; ctx.fillRect(x0, y0, CFG.field.w * s, CFG.field.h * s);
+  ctx.strokeStyle = '#3a474e'; ctx.lineWidth = 1; ctx.strokeRect(x0, y0, CFG.field.w * s, CFG.field.h * s);
+  // fence
+  [x0, y0] = toPx(-fenceX, fenceY);
+  ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(240,180,60,.45)'; ctx.strokeRect(x0, y0, 2 * fenceX * s, 2 * fenceY * s); ctx.setLineDash([]);
+  // markers
+  const ms = CFG.marker.size * s;
+  ctx.font = Math.max(8, Math.min(11, s * 0.11)) + 'px ' + getVar('--mono'); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const m of MARKERS) {
+    const [px, py] = toPx(m.x, m.y);
+    ctx.fillStyle = '#2a353b'; ctx.fillRect(px - ms / 2, py - ms / 2, ms, ms);
+    ctx.fillStyle = '#62727b'; ctx.fillText(m.id, px, py + ms / 2 + 2);
+  }
+  // axes at origin
+  const [ax, ay] = toPx(0, 0);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ef5a4f'; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + 0.5 * s, ay); ctx.stroke();
+  ctx.strokeStyle = '#36c08a'; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax, ay - 0.5 * s); ctx.stroke();
+  ctx.fillStyle = '#8c9aa3'; ctx.textAlign = 'left'; ctx.fillText('x', ax + 0.5 * s + 3, ay - 6); ctx.fillText('y', ax + 3, ay - 0.5 * s - 12);
+  // trail
+  if (S.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(63,167,255,.55)'; ctx.lineWidth = 1.5; ctx.beginPath();
+    S.trail.forEach((p, i) => { const [px, py] = toPx(p.x, p.y); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke();
+  }
+  // route
+  if (R.wps.length) {
+    ctx.setLineDash([6, 4]); ctx.strokeStyle = 'rgba(230,236,239,.45)'; ctx.lineWidth = 1.5; ctx.beginPath();
+    R.wps.forEach((w, i) => { const [px, py] = toPx(w.x, w.y); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke();
+    const aw = routeActive() ? R.wps[R.i] : null;
+    if (aw) { const [px, py] = toPx(aw.x, aw.y); ctx.strokeStyle = 'rgba(240,180,60,.8)'; ctx.beginPath(); ctx.arc(px, py, CFG.route.passTol * s, 0, 2 * Math.PI); ctx.stroke(); }
+    ctx.setLineDash([]);
+    ctx.font = '600 11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    R.wps.forEach((w, i) => {
+      const [px, py] = toPx(w.x, w.y), res = R.results[i], active = routeActive() && i === R.i;
+      ctx.fillStyle = active ? getVar('--warn') : res ? (res.ok ? getVar('--ok') : getVar('--bad')) : '#33424a';
+      ctx.beginPath(); ctx.arc(px, py, 9, 0, 2 * Math.PI); ctx.fill();
+      ctx.strokeStyle = 'rgba(230,236,239,.7)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = active ? '#1a1300' : '#e6ecef'; ctx.fillText(String(i + 1), px, py + 0.5);
+    });
+  }
+  // home
+  if (S.home) {
+    const [hx, hy] = toPx(S.home.x, S.home.y);
+    ctx.strokeStyle = '#36c08a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 11, 0, 2 * Math.PI); ctx.stroke();
+    ctx.fillStyle = '#36c08a'; ctx.font = '600 11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', hx, hy);
+  }
+  // events: one marker per tracked object (latest position of each id); events without id are drawn as they come
+  const objs = new Map();
+  S.events.forEach((e, i) => { if (Number.isFinite(e.x) && Number.isFinite(e.y)) objs.set(e.id != null ? 'id' + e.id : 'e' + i, e); });
+  ctx.font = '600 12px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  for (const e of objs.values()) {
+    const [px, py] = toPx(e.x, e.y), c = clsColor(e.cls), first = S.events.find(q => q.id != null && q.id === e.id) || e;
+    ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(px, py, 0.5 * view.s, 0, 2 * Math.PI); ctx.stroke();
+    ctx.globalAlpha = .9; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(px, py, 7, 0, 2 * Math.PI); ctx.fill(); ctx.globalAlpha = 1;
+    const photo = ((DS.st && DS.st.captures) || []).some(c => c.object_id != null && c.object_id === e.id && c.class_name === e.cls);
+    ctx.fillText((e.id != null ? '#' + e.id + ' ' : '') + e.cls + ' ' + e.score.toFixed(2) + ' · ' +
+                 new Date(first.rx * 1000).toLocaleTimeString([], { hour12: false }) + (photo ? ' · photo ✓' : ''), px + 10, py - 6);
+  }
+  // target
+  const [tx, ty] = toPx(S.target.x, S.target.y);
+  ctx.strokeStyle = '#f0b43c'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(tx - 10, ty); ctx.lineTo(tx + 10, ty); ctx.moveTo(tx, ty - 10); ctx.lineTo(tx, ty + 10); ctx.stroke();
+  ctx.beginPath(); ctx.arc(tx, ty, 6, 0, 2 * Math.PI); ctx.stroke();
+  // drone
+  const t = S.telOk ? S.tel : null;
+  if (t && Number.isFinite(t.x) && Number.isFinite(t.y)) {
+    const [dx, dy] = toPx(t.x, t.y), yaw = Number.isFinite(t.yaw) ? t.yaw : 0, stale = Date.now() - S.telAt > 1500;
+    ctx.save(); ctx.translate(dx, dy); ctx.rotate(-yaw);
+    ctx.fillStyle = stale ? '#8c9aa3' : '#3fa7ff'; ctx.strokeStyle = '#0f1316'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-9, 8); ctx.lineTo(-5, 0); ctx.lineTo(-9, -8); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = '#e6ecef'; ctx.font = '12px ' + getVar('--mono'); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('z ' + fmt(t.z, 2) + ' m', dx + 12, dy + 8);
+  }
+  requestAnimationFrame(draw);
+}
+cv.addEventListener('mousemove', e => {
+  const r = cv.getBoundingClientRect(), [x, y] = toM(e.clientX - r.left, e.clientY - r.top);
+  $('cursor').textContent = 'x ' + x.toFixed(2) + '  y ' + y.toFixed(2);
+});
+cv.addEventListener('click', e => {
+  const r = cv.getBoundingClientRect(); let [x, y] = toM(e.clientX - r.left, e.clientY - r.top);
+  if ($('rtEdit').checked) addWaypoint(x, y); else setTarget(x, y);
+});
+$('clearTrail').onclick = () => { S.trail = []; };
+
+/* ====================== control ====================== */
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function setTarget(x, y) {
+  const cx = clamp(x, -fenceX, fenceX), cy = clamp(y, -fenceY, fenceY);
+  if (cx !== x || cy !== y) log('Target clamped to the flight limits', 'info');
+  S.target = { x: +cx.toFixed(2), y: +cy.toFixed(2) };
+  $('tx').value = S.target.x; $('ty').value = S.target.y;
+}
+$('tx').onchange = $('ty').onchange = () => setTarget(+$('tx').value || 0, +$('ty').value || 0);
+function altSpeed() {
+  const z = clamp(+$('alt').value || 1.5, CFG.fence.zMin, CFG.fence.zMax);
+  const v = clamp(+$('spd').value || 0.5, 0.1, CFG.fence.speedMax);
+  $('alt').value = z; $('spd').value = v;
+  return { z, v };
+}
+const curYaw = () => (S.telOk && Number.isFinite(S.tel.yaw)) ? S.tel.yaw : 0;
+async function navigate(args, label) {
+  const a = {};
+  for (const k of CFG.navigateFields) if (k in args) a[k] = args[k];
+  if (!Number.isFinite(a.yaw)) a.yaw = 0;
+  args = a;
+  log('→ ' + label + ' ' + JSON.stringify(args));
+  try {
+    const r = await ros.call(CFG.srv.navigate, args, 4000);
+    if (r.success === false) { log('✗ ' + label + ': ' + (r.message || 'rejected'), 'err'); return false; }
+    log('✓ ' + label + (r.message ? ': ' + r.message : ''), 'ok'); return true;
+  } catch (e) { log('✗ ' + label + ': ' + e.message, 'err'); return false; }
+}
+async function land(label = 'Land') {
+  S.task = 'idle';
+  log('→ ' + label);
+  try {
+    const r = await ros.call(CFG.srv.land, {}, 4000);
+    if (r.success === false) { log('✗ ' + label + ': ' + (r.message || 'rejected'), 'err'); return; }
+    log('✓ ' + label + (r.message ? ': ' + r.message : ''), 'ok');
+  } catch (e) { log('✗ ' + label + ': ' + e.message, 'err'); }
+}
+// two-step confirm without browser dialogs
+function confirmable(btn, text, fn) {
+  let armedAt = 0; const orig = btn.textContent;
+  btn.addEventListener('click', () => {
+    if (Date.now() - armedAt < 4000) { armedAt = 0; btn.textContent = orig; btn.classList.remove('confirm'); fn(); return; }
+    armedAt = Date.now(); btn.textContent = text; btn.classList.add('confirm');
+    setTimeout(() => { if (armedAt && Date.now() - armedAt >= 4000) { armedAt = 0; btn.textContent = orig; btn.classList.remove('confirm'); } }, 4100);
+  });
+}
+confirmable($('bTakeoff'), 'Confirm take off', async () => {
+  routeAbort('operator pressed Take off');
+  if (S.telOk ? S.tel.armed : S.mav.armed) { log('Already armed: use Fly to target or Hold, not Take off', 'err'); return; }
+  const { z, v } = altSpeed();
+  if (S.telOk && Number.isFinite(S.tel.x)) { S.home = { x: S.tel.x, y: S.tel.y }; log('Home set to take-off point (' + fmt(S.home.x) + ', ' + fmt(S.home.y) + ')'); }
+  S.task = 'idle';
+  await navigate({ x: 0, y: 0, z, yaw: 0, speed: v, frame_id: 'body', auto_arm: true }, 'Take off to ' + z + ' m');
+});
+$('bGo').onclick = async () => {
+  routeAbort('operator pressed Fly to target');
+  if (!(S.telOk ? S.tel.armed : S.mav.armed)) { log('Not armed: take off first', 'err'); return; }
+  const { z, v } = altSpeed(); S.task = 'idle';
+  await navigate({ x: S.target.x, y: S.target.y, z, yaw: curYaw(), speed: v, frame_id: CFG.frame, auto_arm: false },
+                 'Fly to (' + S.target.x + ', ' + S.target.y + ')');
+};
+async function holdHere(label = 'Hold position') {
+  if (!S.telOk || !Number.isFinite(S.tel.x)) { log('No position: cannot hold', 'err'); return false; }
+  const z = Number.isFinite(S.tel.z) ? S.tel.z : altSpeed().z;
+  return navigate({ x: S.tel.x, y: S.tel.y, z, yaw: curYaw(), speed: 0.3, frame_id: CFG.frame, auto_arm: false }, label);
+}
+$('bHold').onclick = async () => {
+  routeAbort('operator pressed Hold');
+  S.task = 'idle';
+  await holdHere();
+};
+// Return home; also measures MC7: command -> first motion toward home, and final distance from home after landing
+async function returnHome(label = 'Return home') {
+  if (!S.home) { log('No home point yet', 'err'); return false; }
+  const t0 = Date.now();
+  const d0 = S.telOk && Number.isFinite(S.tel.x) ? Math.hypot(S.tel.x - S.home.x, S.tel.y - S.home.y) : NaN;
+  const { v } = altSpeed();
+  const z = S.telOk && Number.isFinite(S.tel.z) ? clamp(S.tel.z, CFG.fence.zMin, CFG.fence.zMax) : altSpeed().z;
+  const ok = await navigate({ x: S.home.x, y: S.home.y, z, yaw: curYaw(), speed: v, frame_id: CFG.frame, auto_arm: false }, label);
+  if (ok) {
+    S.task = 'rth'; S.rthSince = Date.now();
+    S.rth = { t0, d0, moved: false, landing: false };
+    log('Return home: ' + (Number.isFinite(d0) ? d0.toFixed(2) + ' m to go' : 'distance unknown') + ', reply after ' + ((S.rthSince - t0) / 1000).toFixed(2) + ' s');
+  }
+  return ok;
+}
+$('bHome').onclick = async () => {
+  routeAbort('operator pressed Return home');
+  await returnHome();
+};
+function checkRth() {
+  if (!S.telOk || !S.home) return;
+  const d = Number.isFinite(S.tel.x) ? Math.hypot(S.tel.x - S.home.x, S.tel.y - S.home.y) : NaN;
+  if (S.rth && S.rth.landing && !S.tel.armed) {
+    // markers often drop out just before touchdown: use the last valid position
+    const p = Number.isFinite(d) ? { x: S.tel.x, y: S.tel.y, z: 0 } : S.lastPos;
+    const dl = p ? Math.hypot(p.x - S.home.x, p.y - S.home.y) : NaN;
+    log('Return home finished: landed ' + (Number.isFinite(dl) ? dl.toFixed(2) + ' m' : '? m') + ' from home' +
+        (!Number.isFinite(d) && p ? ' (last pose at z ' + fmt(p.z, 2) + ' m)' : '') + ', ' + ((Date.now() - S.rth.t0) / 1000).toFixed(1) +
+        ' s after the command', Number.isFinite(dl) && dl <= 0.5 ? 'ok' : 'err');
+    S.rth = null; return;
+  }
+  if (S.task !== 'rth' || !Number.isFinite(d)) return;
+  if (S.rth && !S.rth.moved && Number.isFinite(S.rth.d0) && (d < S.rth.d0 - 0.10 || S.rth.d0 < 0.10)) {
+    S.rth.moved = true;
+    log('Return home: moving toward home ' + ((Date.now() - S.rth.t0) / 1000).toFixed(2) + ' s after the command', 'ok');
+  }
+  if (d <= CFG.homeTolerance && Date.now() - S.rthSince > 1000) {
+    log('Home reached (' + d.toFixed(2) + ' m): landing', 'ok');
+    if (S.rth) S.rth.landing = true;
+    land('Land at home');
+  }
+}
+confirmable($('bLand'), 'Confirm land', () => { routeAbort('operator pressed Land'); land(); });
+$('bSetHome').onclick = () => { S.home = { ...S.target }; log('Home set to (' + S.home.x + ', ' + S.home.y + ')'); };
+
+/* ====================== route over ArUco markers ====================== */
+// Flown by the browser: one navigate per waypoint, progress checked on each telemetry reply (5 Hz).
+// If the link drops, the drone keeps holding its last setpoint; the route continues when telemetry is back.
+CFG.route = {
+  passTol: 0.30,        // m, MC1: mean horizontal error over the hold must be within this
+  zTol: 0.20,           // m, altitude must be within this to count as arrived
+  snap: 0.375,          // m, map clicks closer than this to a marker snap to its centre (half the pitch)
+  takeoffTimeout: 20,   // s
+  legSlack: 15,         // s, leg timeout = 2 x (distance / speed) + this
+  corners: [100, 108, 144, 136],
+  snake: [100, 104, 108, 126, 122, 118, 136, 140, 144],
+};
+const R = { wps: [], results: [], state: 'idle', i: -1, run: 0, z: 1.5, v: 0.5, yaw: 0, dwell: 1.5, tol: 0.15, end: 'rth',
+            t: 0, tArrive: 0, samples: [], sawOffboard: false, dist: NaN, tStart: 0, startIso: '' };
+const markerById = id => MARKERS.find(m => m.id === id);
+const routeBusy = () => R.state === 'takeoff' || R.state === 'fly' || R.state === 'dwell' || R.state === 'inspect';
+const routeActive = () => routeBusy() || R.state === 'paused';
+
+function saveRoute() { store.set('airael.route', JSON.stringify(R.wps)); }
+function loadRoute() {
+  try {
+    const a = JSON.parse(store.get('airael.route', '[]'));
+    if (Array.isArray(a)) R.wps = a.filter(w => w && Number.isFinite(w.x) && Number.isFinite(w.y));
+  } catch (e) { R.wps = []; }
+}
+function routeEdited() { R.results = []; R.state = 'idle'; R.i = -1; $('rtSummary').textContent = ''; saveRoute(); renderRouteTable(); }
+function canEdit() { if (routeActive()) { log('Route is running: stop it before editing', 'err'); return false; } return true; }
+
+function addWaypoint(x, y) {
+  if (!canEdit()) return;
+  let id = null, best = null, bd = Infinity;
+  for (const m of MARKERS) { const d = Math.hypot(m.x - x, m.y - y); if (d < bd) { bd = d; best = m; } }
+  if (best && bd <= CFG.route.snap) { x = best.x; y = best.y; id = best.id; }
+  x = clamp(x, -fenceX, fenceX); y = clamp(y, -fenceY, fenceY);
+  R.wps.push({ x: +x.toFixed(3), y: +y.toFixed(3), id });
+  routeEdited();
+}
+function setRouteIds(ids) {
+  if (!canEdit()) return;
+  const wps = [], bad = [];
+  for (const id of ids) { const m = markerById(id); if (m) wps.push({ x: m.x, y: m.y, id }); else bad.push(id); }
+  if (bad.length) log('Unknown marker IDs ignored: ' + bad.join(', ') + ' (field has ' + CFG.marker.firstId + '–' + (CFG.marker.firstId + MARKERS.length - 1) + ')', 'err');
+  R.wps = wps; routeEdited();
+  log('Route set: ' + (wps.length ? wps.map(w => w.id).join(' → ') : 'empty'));
+}
+$('rtSetIds').onclick = () => setRouteIds(($('rtIds').value.match(/\d+/g) || []).map(Number));
+$('rtIds').addEventListener('keydown', e => { if (e.key === 'Enter') $('rtSetIds').click(); });
+$('rtCorners').onclick = () => setRouteIds(CFG.route.corners);
+$('rtSnake').onclick = () => setRouteIds(CFG.route.snake);
+$('rtUndo').onclick = () => { if (canEdit() && R.wps.length) { R.wps.pop(); routeEdited(); } };
+$('rtClear').onclick = () => { if (canEdit()) { R.wps = []; routeEdited(); } };
+
+async function routeStart() {
+  if (routeActive()) { log('Route already running', 'err'); return; }
+  if (!R.wps.length) { log('Route is empty', 'err'); return; }
+  if (!S.telOk) { log('No telemetry: cannot start the route', 'err'); return; }
+  const { z, v } = altSpeed();
+  Object.assign(R, {
+    z, v, dwell: clamp(+$('rtDwell').value || 1.5, 0.5, 30), tol: clamp(+$('rtTol').value || 0.15, 0.05, CFG.route.passTol),
+    end: $('rtEnd').value, results: R.wps.map(() => null), i: -1, run: R.run + 1, sawOffboard: false,
+    tStart: Date.now(), startIso: new Date().toISOString(), samples: [], dist: NaN, queue: [], ins: null, resumeI: -1,
+  });
+  $('rtDwell').value = R.dwell; $('rtTol').value = R.tol; $('rtSummary').textContent = '';
+  S.task = 'route';
+  log('Route start: ' + R.wps.length + ' waypoints (' + R.wps.map(w => w.id ?? '·').join(' → ') + '), z ' + z + ' m, speed ' + v +
+      ' m/s, hold ' + R.dwell + ' s, arrive ≤ ' + R.tol + ' m, end: ' + R.end, 'ok');
+  const run = R.run;
+  if (!S.tel.armed) {
+    if (Number.isFinite(S.tel.x)) { S.home = { x: S.tel.x, y: S.tel.y }; log('Home set to take-off point (' + fmt(S.home.x) + ', ' + fmt(S.home.y) + ')'); }
+    R.state = 'takeoff'; R.t = Date.now(); renderRouteTable();
+    const ok = await navigate({ x: 0, y: 0, z, yaw: 0, speed: v, frame_id: 'body', auto_arm: true }, 'Route: take off to ' + z + ' m');
+    if (run === R.run && !ok) routePause('take-off command failed', false);
+  } else {
+    R.yaw = curYaw();
+    if (!S.home && Number.isFinite(S.tel.x)) { S.home = { x: S.tel.x, y: S.tel.y }; log('Home set to current position (' + fmt(S.home.x) + ', ' + fmt(S.home.y) + ')'); }
+    routeNext();
+  }
+}
+async function routeNext() {
+  R.i++;
+  if (R.i >= R.wps.length) { routeFinish(); return; }
+  const w = R.wps[R.i], run = R.run, n = R.wps.length;
+  R.state = 'fly'; R.t = Date.now(); R.samples = []; R.results[R.i] = null;
+  const d0 = Number.isFinite(S.tel.x) ? Math.hypot(w.x - S.tel.x, w.y - S.tel.y) : 3;
+  R.legTimeout = 2 * d0 / R.v + CFG.route.legSlack;
+  renderRouteTable();
+  const ok = await navigate({ x: w.x, y: w.y, z: R.z, yaw: R.yaw, speed: R.v, frame_id: CFG.frame, auto_arm: false },
+                           'Route ' + (R.i + 1) + '/' + n + (w.id != null ? ' marker ' + w.id : '') + ' (' + w.x + ', ' + w.y + ')');
+  if (run === R.run && R.state === 'fly' && !ok) routePause('navigate to waypoint ' + (R.i + 1) + ' rejected', false);
+}
+function routePause(reason, hold = true) {
+  if (!routeBusy()) return;
+  if (R.state === 'inspect') { R.i = R.resumeI >= 0 ? R.resumeI : R.i; R.ins = null; }
+  R.state = 'paused';
+  log('Route paused: ' + reason, 'err');
+  renderRouteTable();
+  if (hold) holdHere('Route: hold');
+}
+function routeResume() {
+  if (R.state !== 'paused') return;
+  if (!(S.telOk && S.tel.armed)) { log('Not armed: cannot resume. Start the route again.', 'err'); return; }
+  if (!Number.isFinite(R.yaw)) R.yaw = curYaw();
+  if (R.i < 0 && !R.yaw) R.yaw = curYaw();
+  log('Route resumed at waypoint ' + Math.max(1, R.i + 1), 'ok');
+  R.i = Math.max(-1, R.i - 1);   // routeNext() moves to the same waypoint again
+  routeNext();
+}
+function routeAbort(reason) {
+  if (!routeActive()) return;
+  R.state = 'aborted'; R.ins = null; R.queue = [];
+  if (S.task === 'route') S.task = 'idle';
+  log('Route aborted at waypoint ' + Math.max(1, R.i + 1) + '/' + R.wps.length + ': ' + reason, 'err');
+  routeSummary(false); renderRouteTable();
+}
+function routeSummary(done) {
+  const res = R.results.filter(Boolean), pass = res.filter(r => r.ok).length;
+  const worst = res.length ? Math.max(...res.map(r => r.mean)) : NaN;
+  const txt = (done ? 'Completed' : 'Stopped') + ': ' + pass + '/' + R.wps.length + ' waypoints within ' + CFG.route.passTol +
+              ' m' + (res.length ? ', worst mean error ' + worst.toFixed(3) + ' m' : '') + ', ' + ((Date.now() - R.tStart) / 1000).toFixed(1) + ' s' +
+              (done && pass === R.wps.length ? ' · MC1 PASS' : done ? ' · MC1 FAIL' : '');
+  $('rtSummary').textContent = txt;
+  $('rtSummary').style.color = done && pass === R.wps.length ? 'var(--ok)' : 'var(--bad)';
+  log('Route ' + txt, done && pass === R.wps.length ? 'ok' : 'err');
+}
+function routeFinish() {
+  R.state = 'done'; R.i = R.wps.length - 1;
+  if (S.task === 'route') S.task = 'idle';
+  routeSummary(true); renderRouteTable();
+  if (R.end === 'rth') returnHome('Route end: return home');
+  else if (R.end === 'land') land('Route end: land');
+}
+// called after every telemetry reply
+function routeTick() {
+  if (!routeActive()) return;
+  const t = S.tel, now = Date.now();
+  if (t.mode === 'OFFBOARD') R.sawOffboard = true;
+  else if (R.sawOffboard) { routeAbort('flight mode changed to ' + (t.mode || '?') + ' (pilot or failsafe took over)'); return; }
+  if (R.sawOffboard && !t.armed) { routeAbort('drone disarmed'); return; }
+  if (R.state === 'paused') return;
+  if (R.state === 'inspect') { inspectTick(t, now); return; }
+  if (R.state === 'takeoff') {
+    if (Number.isFinite(t.z) && t.z >= R.z - CFG.route.zTol && t.armed) {
+      R.yaw = Number.isFinite(t.yaw) ? t.yaw : 0;
+      if (!S.home && Number.isFinite(t.x)) { S.home = { x: t.x, y: t.y }; log('Home set after take-off (' + fmt(t.x) + ', ' + fmt(t.y) + ')'); }
+      log('Route: take-off done, z ' + t.z.toFixed(2) + ' m after ' + ((now - R.t) / 1000).toFixed(1) + ' s', 'ok');
+      routeNext();
+    } else if (now - R.t > CFG.route.takeoffTimeout * 1000) routePause('take-off not finished after ' + CFG.route.takeoffTimeout + ' s');
+    return;
+  }
+  const w = R.wps[R.i];
+  if (!w) return;
+  if (!Number.isFinite(t.x) || !Number.isFinite(t.y)) { R.dist = NaN; return; }   // no marker pose right now: wait
+  const d = Math.hypot(t.x - w.x, t.y - w.y), dz = Number.isFinite(t.z) ? Math.abs(t.z - R.z) : Infinity;
+  R.dist = d;
+  if (R.state === 'fly') {
+    if (d <= R.tol && dz <= CFG.route.zTol) { R.state = 'dwell'; R.tArrive = now; R.samples = []; renderRouteTable(); }
+    else if (now - R.t > R.legTimeout * 1000) {
+      R.results[R.i] = { ok: false, timeout: true, mean: d, max: d, zerr: dz, leg: (now - R.t) / 1000, iso: new Date().toISOString() };
+      routePause('waypoint ' + (R.i + 1) + ' not reached within ' + R.legTimeout.toFixed(0) + ' s (' + d.toFixed(2) + ' m away)');
+      return;
+    }
+  }
+  if (R.state === 'dwell') {
+    R.samples.push({ d, dz });
+    if (now - R.tArrive >= R.dwell * 1000 && R.samples.length >= 3) {
+      const ds = R.samples.map(q => q.d), mean = ds.reduce((a, b) => a + b, 0) / ds.length, max = Math.max(...ds);
+      const zerr = R.samples.reduce((a, q) => a + q.dz, 0) / R.samples.length;
+      const ok = mean <= CFG.route.passTol;
+      R.results[R.i] = { ok, mean, max, zerr, n: ds.length, leg: (R.tArrive - R.t) / 1000, iso: new Date().toISOString() };
+      log('Waypoint ' + (R.i + 1) + (w.id != null ? ' (marker ' + w.id + ')' : '') + ': error ' + mean.toFixed(3) + ' m, max ' + max.toFixed(3) +
+          ' m, z error ' + zerr.toFixed(2) + ' m, ' + ds.length + ' samples · ' + (ok ? 'PASS' : 'FAIL'), ok ? 'ok' : 'err');
+      routeNext();
+    }
+  }
+}
+confirmable($('rtStart'), 'Confirm start route', () => routeStart());
+$('rtPause').onclick = () => routePause('operator pressed Pause');
+$('rtResume').onclick = () => routeResume();
+
+function renderRouteTable() {
+  $('rtCount').textContent = R.wps.length ? '(' + R.wps.length + ')' : '';
+  const body = $('rtBody'); body.innerHTML = '';
+  R.wps.forEach((w, i) => {
+    const r = R.results[i], active = routeActive() && i === R.i;
+    let res = '';
+    if (r) res = r.ok ? '<span style="color:var(--ok)">PASS</span>' : '<span style="color:var(--bad)">' + (r.timeout ? 'TIMEOUT' : 'FAIL') + '</span>';
+    else if (active) res = '<span style="color:var(--warn)">' + (R.state === 'dwell' ? 'holding' : R.state === 'paused' ? 'paused' : R.state === 'inspect' ? 'inspecting' : 'flying') + '</span>';
+    const tr = document.createElement('tr');
+    if (active) tr.style.background = 'rgba(240,180,60,.10)';
+    tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + (w.id ?? '—') + '</td><td>' + fmt(w.x) + '</td><td>' + fmt(w.y) + '</td><td>' + res +
+      '</td><td>' + (r ? fmt(r.mean, 3) : '') + '</td><td>' + (r ? fmt(r.max, 3) : '') + '</td><td>' + (r ? fmt(r.leg, 1) : '') + '</td>';
+    body.appendChild(tr);
+  });
+  renderRouteStatus();
+}
+function renderRouteStatus() {
+  const n = R.wps.length, w = R.wps[R.i];
+  let st;
+  if (!n) st = 'No route. Type marker IDs, pick a preset, or tick "Click map adds waypoint".';
+  else if (R.state === 'takeoff') st = 'Taking off to ' + R.z + ' m …';
+  else if (R.state === 'inspect' && R.ins) {
+    const I = R.ins;
+    st = 'INSPECTING ' + insName(I.ev) + ': ' + (I.phase === 'goto' ? 'flying over it at ' + I.alt + ' m' + (Number.isFinite(R.dist) ? ' · ' + R.dist.toFixed(2) + ' m' : '')
+         : I.phase === 'settle' ? 'holding ' + Math.min(I.hold, (Date.now() - I.t) / 1000).toFixed(1) + '/' + I.hold + ' s' : 'taking the photo …') +
+         (R.queue.length ? ' · ' + R.queue.length + ' more queued' : '') + ' · then waypoint ' + (R.resumeI + 1);
+  }
+  else if (R.state === 'fly' || R.state === 'dwell' || R.state === 'paused') {
+    st = (R.state === 'paused' ? 'PAUSED at ' : R.state === 'dwell' ? 'Holding at ' : 'Flying to ') + 'waypoint ' + (R.i + 1) + '/' + n +
+         (w && w.id != null ? ' (marker ' + w.id + ')' : '') + (Number.isFinite(R.dist) ? ' · ' + R.dist.toFixed(2) + ' m' : ' · no position');
+    if (R.state === 'dwell') st += ' · ' + Math.min(R.dwell, (Date.now() - R.tArrive) / 1000).toFixed(1) + '/' + R.dwell + ' s';
+  } else st = n + ' waypoints ready' + (R.state === 'done' ? ' (last run completed)' : R.state === 'aborted' ? ' (last run stopped)' : '');
+  $('rtStatus').textContent = st;
+  const active = routeActive(), editable = !active;
+  $('rtStart').disabled = !S.link || active || !n;
+  $('rtPause').disabled = !routeBusy();
+  $('rtResume').disabled = R.state !== 'paused';
+  ['rtSetIds', 'rtCorners', 'rtSnake', 'rtUndo', 'rtClear', 'rtIds', 'rtDwell', 'rtTol', 'rtEnd'].forEach(id => $(id).disabled = !editable);
+}
+$('rtCsv').onclick = () => {
+  const rows = ['run_start_iso,waypoint,marker_id,x_target_m,y_target_m,z_target_m,result,err_mean_m,err_max_m,z_err_mean_m,samples,leg_time_s,reached_iso,hold_s,arrive_tol_m,pass_tol_m,speed_mps'];
+  R.wps.forEach((w, i) => {
+    const r = R.results[i];
+    rows.push([R.startIso, i + 1, w.id ?? '', w.x, w.y, R.z, r ? (r.ok ? 'PASS' : r.timeout ? 'TIMEOUT' : 'FAIL') : 'not reached',
+      r ? r.mean.toFixed(4) : '', r ? r.max.toFixed(4) : '', r && Number.isFinite(r.zerr) ? r.zerr.toFixed(3) : '', r ? (r.n || '') : '',
+      r ? r.leg.toFixed(2) : '', r ? r.iso : '', R.dwell, R.tol, CFG.route.passTol, R.v].join(','));
+  });
+  download(stampName('route_log'), rows.join('\n'));
+};
+loadRoute(); renderRouteTable();
+if (R.wps.length && R.wps.every(w => w.id != null)) $('rtIds').value = R.wps.map(w => w.id).join(' ');
+
+/* ====================== logs & export ====================== */
+function addEventRow(e) {
+  const tr = document.createElement('tr');
+  const c = clsColor(e.cls);
+  tr.innerHTML = '<td>' + nowStr(e.rx * 1000) + '</td><td><span class="tag" style="background:' + c + '33;color:' + c + '">' + escapeHtml(e.cls) +
+    (e.id != null ? ' #' + e.id : '') + '</span>' + (e.kind === 'new' ? ' <b style="color:var(--warn)">NEW</b>' : '') +
+    '</td><td>' + fmt(e.score, 2) + '</td><td>' + fmt(e.x) + '</td><td>' + fmt(e.y) + '</td><td>' + fmt(e.lat, 2) + '</td>';
+  $('evBody').prepend(tr); $('evCount').textContent = S.events.length;
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const stampName = p => p + '_' + new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19) + '.csv';
+$('evCsv').onclick = () => {
+  const rows = ['detection_stamp_iso,detection_stamp_s,received_s,latency_s,type,confidence,x_m,y_m,object_id,kind,hits,spread_m'];
+  for (const e of S.events) rows.push([Number.isFinite(e.stamp) ? new Date(e.stamp * 1000).toISOString() : '', e.stamp, e.rx.toFixed(3),
+    Number.isFinite(e.lat) ? e.lat.toFixed(3) : '', e.cls, e.score, e.x, e.y, e.id ?? '', e.kind, e.hits, e.spread].join(','));
+  download(stampName('event_log'), rows.join('\n'));
+};
+$('cmdCsv').onclick = () => {
+  const rows = ['time_iso,kind,text'];
+  for (const c of S.cmds) rows.push([new Date(c.t).toISOString(), c.kind, '"' + c.text.replace(/"/g, '""') + '"'].join(','));
+  download(stampName('command_log'), rows.join('\n'));
+};
+
+/* ====================== dataset capture (drives dataset_server.py on the drone) ====================== */
+CFG.dataset = {
+  cmdTopic: '/airael/dataset/cmd', statusTopic: '/airael/dataset/status',
+  labels: [['bonfire', 'Bonfire'], ['tree', 'Tree'], ['bonfire_tree', 'Bonfire + tree'], ['background', 'Background (empty)']],
+  bands: ['0.5', '1.0', '1.5', '2.0', '2.5', '3.0'],
+  previewFps: 5,
+};
+const DS = { st: null, stAt: 0, pending: null, n: 0, timerEnd: null, endedLogged: false, wasRec: false };
+ros.advertise(CFG.dataset.cmdTopic, 'std_msgs/String');
+ros.subscribe(CFG.dataset.statusTopic, 'std_msgs/String', m => {
+  try { DS.st = JSON.parse(m.data); DS.stAt = Date.now(); } catch (e) { return; }
+  if (DS.pending && DS.st.ack === DS.pending.id) { const p = DS.pending; DS.pending = null; p.done(true); }
+  renderDataset();
+});
+// publish a command, resend every second until the status echoes its id (the server handles each id once)
+function dsSend(cmd) {
+  if (!ros.open) { log('Dataset: not connected to the drone', 'err'); return Promise.resolve(false); }
+  if (DS.pending) DS.pending.done(false);
+  const id = 'd' + Date.now().toString(36) + (++DS.n), data = JSON.stringify(Object.assign({ id }, cmd));
+  return new Promise(res => {
+    let tries = 0;
+    const send = () => { ros.publish(CFG.dataset.cmdTopic, { data }); tries++; };
+    const timer = setInterval(() => {
+      if (!DS.pending || DS.pending.id !== id) { clearInterval(timer); return; }
+      if (tries >= 4) {
+        clearInterval(timer); DS.pending = null;
+        log('Dataset: no reply to "' + cmd.cmd + '". Is dataset_server.py running on the drone?', 'err'); res(false); return;
+      }
+      send();
+    }, 1000);
+    DS.pending = { id, done: ok => { clearInterval(timer); res(ok); } };
+    send();
+  });
+}
+async function dsStart(label) {
+  label = String(label || '').trim();
+  if (!label) return;
+  const cmd = { cmd: 'start', label, rate: clamp(+$('dsRate').value || 2, 0.5, 10), min_alt: Math.max(0, +$('dsMinAlt').value || 0),
+                max_alt: Math.max(0.5, +$('dsMaxAlt').value || 3), min_diff: Math.max(0, +$('dsDiff').value || 0),
+                rgb: $('dsRgbOn').checked, note: $('dsNote').value.trim() };
+  if (DS.timerEnd === null) dsTimerStart();
+  log('Dataset: start "' + label + '" (' + cmd.rate + ' fps, alt ' + cmd.min_alt + '–' + cmd.max_alt + ' m, rgb ' + cmd.rgb + ')');
+  const ok = await dsSend(cmd);
+  if (!ok) return;
+  if (DS.st && DS.st.error) log('Dataset: ' + DS.st.error, 'err');
+  else log('Dataset: recording ' + (DS.st && DS.st.session), 'ok');
+}
+async function dsStop() {
+  const st = DS.st, name = st && st.session, saved = st && st.saved;
+  if (!(st && st.recording)) return;
+  if (await dsSend({ cmd: 'stop' })) log('Dataset: stopped ' + name + ' (' + saved + ' frames)', 'ok');
+}
+CFG.dataset.labels.forEach(([key, name], i) => {
+  const b = document.createElement('button'); b.dataset.label = key;
+  b.innerHTML = '<span class="k">' + (i + 1) + '</span>' + escapeHtml(name);
+  b.onclick = () => dsStart(key); $('dsLabelBtns').appendChild(b);
+});
+$('dsCustomBtn').onclick = () => dsStart($('dsCustom').value.replace(/\s+/g, '_'));
+$('dsCustom').addEventListener('keydown', e => { if (e.key === 'Enter') $('dsCustomBtn').click(); });
+$('dsStop').onclick = () => dsStop();
+document.addEventListener('keydown', e => {
+  if (S.view !== 'dataset' || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  const i = '1234'.indexOf(e.key);
+  if (i >= 0 && CFG.dataset.labels[i]) { e.preventDefault(); dsStart(CFG.dataset.labels[i][0]); }
+  else if (e.key === 's' || e.key === 'S' || e.key === 'Escape') { e.preventDefault(); dsStop(); }
+});
+// settings survive a reload
+['dsRate', 'dsMinAlt', 'dsMaxAlt', 'dsDiff', 'dsBudget'].forEach(id => {
+  $(id).value = store.get('airael.' + id, $(id).value); $(id).addEventListener('change', () => store.set('airael.' + id, $(id).value));
+});
+$('dsRgbOn').checked = store.get('airael.dsRgbOn', '1') === '1';
+$('dsRgbOn').addEventListener('change', () => store.set('airael.dsRgbOn', $('dsRgbOn').checked ? '1' : '0'));
+
+// countdown (the competition gives 7 minutes for data collection)
+function dsTimerStart() { DS.timerEnd = Date.now() + clamp(+$('dsBudget').value || 7, 1, 60) * 60000; DS.endedLogged = false; log('Dataset timer started: ' + $('dsBudget').value + ' min'); }
+$('dsTStart').onclick = () => dsTimerStart();
+$('dsTReset').onclick = () => { DS.timerEnd = null; DS.endedLogged = false; };
+function dsTick() {
+  const budget = clamp(+$('dsBudget').value || 7, 1, 60) * 60;
+  const left = DS.timerEnd === null ? budget : Math.max(0, (DS.timerEnd - Date.now()) / 1000);
+  const el = $('dsTimer');
+  el.textContent = Math.floor(left / 60) + ':' + String(Math.floor(left % 60)).padStart(2, '0');
+  el.style.color = DS.timerEnd === null ? 'var(--muted)' : left <= 0 ? 'var(--bad)' : left < 60 ? 'var(--warn)' : 'var(--text)';
+  if (DS.timerEnd !== null && left <= 0 && !DS.endedLogged) {
+    DS.endedLogged = true; log('Dataset timer: time is up', 'err');
+    if ($('dsAutoStop').checked) dsStop();
+  }
+  const t = S.telOk ? S.tel : null, st = DS.st;
+  $('dsFlight').textContent = 'altitude ' + (st && st.alt != null ? st.alt.toFixed(2) + ' m (' + st.alt_src + ')' : '—') +
+    '  ·  z ' + fmt(t && t.z) + '  ·  ' + (t ? (t.armed ? 'ARMED ' : 'disarmed ') + (t.mode || '') : 'no telemetry') +
+    '  ·  battery ' + (t && Number.isFinite(t.voltage) ? t.voltage.toFixed(1) + ' V' : '—') +
+    '  ·  markers ' + (S.markersAt && Date.now() - S.markersAt < 2000 ? S.markers : '—');
+  renderDataset();
+}
+setInterval(dsTick, 250);
+
+function bars(el, rows, color) {
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  el.innerHTML = rows.map(([k, n]) => '<div class="bar"><span>' + escapeHtml(k) + '</span><span class="b"><i style="width:' +
+    (100 * n / max).toFixed(1) + '%;background:' + color + '"></i></span><span style="text-align:right">' + n + '</span></div>').join('') ||
+    '<div class="note">nothing yet</div>';
+}
+function renderDataset() {
+  const st = DS.st, alive = st && Date.now() - DS.stAt < 3500, rec = !!(alive && st.recording);
+  setDot($('dsSrvDot'), !S.link ? '' : alive ? (rec ? 'bad' : 'ok') : 'warn');
+  $('dsSrvTxt').textContent = !S.link ? 'dataset server —' : !alive ? 'dataset server offline' : rec ? 'RECORDING' : 'dataset server ready';
+  $('tabDataset').classList.toggle('recording', rec);
+  document.querySelectorAll('#dsLabelBtns button').forEach(b => { b.classList.toggle('on', rec && b.dataset.label === st.label); b.disabled = !S.link; });
+  $('dsCustomBtn').disabled = !S.link; $('dsStop').disabled = !rec;
+  if (DS.wasRec && !rec && alive) DS.wasRec = false;
+  if (rec) DS.wasRec = true;
+  $('dsRec').innerHTML = rec
+    ? '<span class="bad">● REC</span> ' + escapeHtml(st.session) + '<br>' + st.saved + ' saved · ' + st.skipped_dup + ' similar skipped · ' +
+      st.skipped_alt + ' outside altitude · ' + Math.floor(st.elapsed / 60) + ':' + String(Math.floor(st.elapsed % 60)).padStart(2, '0')
+    : 'Not recording';
+  const w = [];
+  if (S.link && !alive) w.push('No status from the drone. Start it there: ~/airael/airael.sh start');
+  if (alive && st.error) w.push(st.error);
+  if (rec && st.pair_age == null && st.elapsed > 3) w.push('No camera frames yet' + (st.opts && st.opts.rgb ? ': is the RGB camera publishing? Untick "save RGB pairs" to record thermal only.' : '.'));
+  else if (rec && st.pair_age > 3) w.push('No frames for ' + st.pair_age.toFixed(0) + ' s' + (st.opts && st.opts.rgb ? ' (thermal + RGB pairs). Untick "save RGB pairs" if RGB is down.' : '.'));
+  if (rec && st.alt != null && st.opts && (st.alt < st.opts.min_alt || st.alt > st.opts.max_alt)) w.push('Altitude ' + st.alt.toFixed(2) + ' m is outside ' + st.opts.min_alt + '–' + st.opts.max_alt + ' m: frames are skipped.');
+  if (alive && st.free_mb < 2000) w.push('Only ' + (st.free_mb / 1000).toFixed(1) + ' GB free on the drone.');
+  $('dsWarn').textContent = w.join('  ');
+  // coverage of this session by altitude band, and frames per label over all sessions
+  const b = (rec && st.bands) || {};
+  bars($('dsBands'), CFG.dataset.bands.map(k => [k + ' m', b[k] || 0]).concat(Object.keys(b).filter(k => !CFG.dataset.bands.includes(k)).map(k => [k + ' m', b[k]])), 'var(--accent)');
+  const per = {};
+  for (const s of (alive && st.sessions) || []) { const l = s.label || s.name.split('_')[0]; per[l] = (per[l] || 0) + s.frames; }
+  bars($('dsLabels'), Object.keys(per).sort().map(k => [k, per[k]]), 'var(--fire)');
+  const key = alive ? JSON.stringify(st.sessions) : '';
+  if (key !== DS.sessKey) {
+    DS.sessKey = key;
+    $('dsSessions').innerHTML = ((alive && st.sessions) || []).map(s => '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.label || '') +
+      '</td><td>' + s.frames + '</td></tr>').join('');
+  }
+  $('dsFree').textContent = alive ? (st.free_mb / 1000).toFixed(1) + ' GB free' : '';
+  const r = 'rsync -av orangepi@' + $('host').value.trim() + ':' + ((alive && st.root) || '/home/orangepi/dataset') + '/ ~/dataset/';
+  if ($('dsRsync').value !== r) $('dsRsync').value = r;
+}
+$('dsCopy').onclick = () => {
+  const t = $('dsRsync'); t.select();
+  (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => log('Copied: ' + t.value), () => { try { document.execCommand('copy'); } catch (e) {} });
+};
+
+// live previews: compressed JPEG over rosbridge (5 fps), else web_video_server snapshots
+const DSP = { gen: 0, stops: [] };
+function dsPreviews() {
+  DSP.gen++; DSP.stops.forEach(f => { try { f(); } catch (e) {} }); DSP.stops = [];
+  if (S.view !== 'dataset' || document.hidden) return;
+  dsPreview($('dsThermal'), $('dsThermalSrc'), CFG.cams[0], DSP.gen);
+  dsPreview($('dsRgb'), $('dsRgbSrc'), CFG.cams[1], DSP.gen);
+}
+function dsPreview(img, cap, cam, gen) {
+  if (!ros.open) { cap.textContent = cam.name + ' · waiting for rosbridge'; return; }
+  const cands = cam.jpeg.filter(t => !S.jpegTopics || S.jpegTopics.has(t));
+  const snap = () => {
+    if (gen !== DSP.gen) return;
+    let n = 0, last = 0, stop = false;
+    const next = () => {
+      if (stop || gen !== DSP.gen) return;
+      const pic = new Image(), t0 = Date.now();
+      pic.onload = () => { if (stop || gen !== DSP.gen) return; n++; img.src = pic.src; setTimeout(next, Math.max(0, 1000 / CFG.dataset.previewFps - (Date.now() - t0))); };
+      pic.onerror = () => setTimeout(next, 1500);
+      pic.src = videoBase() + '/snapshot?topic=' + encodeURIComponent(cam.raw) + '&quality=60&t=' + Date.now();
+    };
+    const timer = setInterval(() => { cap.textContent = cam.name + ' · ' + (n - last) + ' fps · snapshots'; last = n; }, 1000);
+    DSP.stops.push(() => { stop = true; clearInterval(timer); });
+    next();
+  };
+  const tryJpeg = i => {
+    if (gen !== DSP.gen) return;
+    if (i >= cands.length) { snap(); return; }
+    const topic = cands[i], t0 = Date.now();
+    let n = 0, last = 0, at = 0;
+    cap.textContent = cam.name + ' · waiting for ' + topic;
+    const cb = m => {
+      if (gen !== DSP.gen || !m || !m.data) return;
+      n++; at = Date.now();
+      img.src = 'data:' + (/png/i.test(m.format || '') ? 'image/png' : 'image/jpeg') + ';base64,' + b64(m.data);
+    };
+    ros.subscribe(topic, 'sensor_msgs/CompressedImage', cb, Math.round(1000 / CFG.dataset.previewFps));
+    const timer = setInterval(() => {
+      if (gen !== DSP.gen) return;
+      if (!n && Date.now() - t0 > CFG.camNoFrameMs) { clearInterval(timer); ros.unsubscribe(topic, cb); tryJpeg(i + 1); return; }
+      cap.textContent = cam.name + ' · ' + (n - last) + ' fps · JPEG' + (n && Date.now() - at > CFG.camStaleMs ? ' · no new frame' : '');
+      last = n;
+    }, 1000);
+    DSP.stops.push(() => { clearInterval(timer); ros.unsubscribe(topic, cb); });
+  };
+  tryJpeg(0);
+}
+
+/* ====================== bonfire inspection during the route ====================== */
+// When geolocation reports a fire-class object that was not photographed yet, the route pauses, the drone flies
+// over the object at the inspection altitude, holds, dataset_server takes a photo, and the route goes back to
+// the waypoint it was flying to. Duplicates are skipped: same object id, or same class closer than ~radius to an
+// object already inspected in this session or to an earlier photo stored on the drone.
+CFG.inspect = { classes: /fire/i, arriveTol: 0.20, zTol: 0.20, radius: 1.0, renavMove: 0.15, slack: 15 };
+R.inspected = []; R.queue = []; R.ins = null; R.resumeI = -1;
+['rtInsAlt', 'rtInsHold'].forEach(id => {
+  $(id).value = store.get('airael.' + id, $(id).value); $(id).addEventListener('change', () => store.set('airael.' + id, $(id).value));
+});
+$('rtInsOn').checked = store.get('airael.rtInsOn', '0') === '1';
+$('rtInsOn').addEventListener('change', () => store.set('airael.rtInsOn', $('rtInsOn').checked ? '1' : '0'));
+function insOpts() {
+  return { on: $('rtInsOn').checked, alt: clamp(+$('rtInsAlt').value || 1.0, CFG.fence.zMin, CFG.fence.zMax),
+           hold: clamp(+$('rtInsHold').value || 2, 0.5, 20) };
+}
+const insName = ev => ev.cls + (ev.id != null ? ' #' + ev.id : '');
+function alreadyInspected(ev) {
+  const near = (o, cls) => cls === ev.cls && Number.isFinite(o.x) && Number.isFinite(o.y) && Math.hypot(o.x - ev.x, o.y - ev.y) < CFG.inspect.radius;
+  if (R.inspected.some(o => (ev.id != null && o.id === ev.id) || near(o, o.cls))) return true;
+  return ((DS.st && DS.st.captures) || []).some(c => near(c, c.class_name));
+}
+function inspectConsider(ev) {
+  if (!insOpts().on || !routeActive() || R.state === 'paused' || !CFG.inspect.classes.test(ev.cls) ||
+      !Number.isFinite(ev.x) || !Number.isFinite(ev.y)) return;
+  if (R.ins && ev.id != null && R.ins.ev.id === ev.id) { R.ins.ev = ev; return; }   // refined position of the current one
+  if (alreadyInspected(ev)) return;
+  const q = R.queue.find(e => (ev.id != null && e.id === ev.id) || (e.cls === ev.cls && Math.hypot(e.x - ev.x, e.y - ev.y) < CFG.inspect.radius));
+  if (q) Object.assign(q, ev);
+  else {
+    R.queue.push(ev);
+    log('Inspection: ' + insName(ev) + ' found at (' + fmt(ev.x) + ', ' + fmt(ev.y) + ')' + (R.state === 'fly' || R.state === 'dwell' ? '' : ', queued'));
+  }
+  if ((R.state === 'fly' || R.state === 'dwell') && !R.ins && R.queue.length) inspectStart();
+}
+async function inspectStart() {
+  const ev = R.queue.shift();
+  if (!ev) return;
+  const o = insOpts(), run = R.run;
+  if (R.state !== 'inspect') R.resumeI = R.i;
+  R.state = 'inspect';
+  const tx = clamp(ev.x, -fenceX, fenceX), ty = clamp(ev.y, -fenceY, fenceY);
+  const d0 = S.telOk && Number.isFinite(S.tel.x) ? Math.hypot(tx - S.tel.x, ty - S.tel.y) : 3;
+  const dz0 = S.telOk && Number.isFinite(S.tel.z) ? Math.abs(o.alt - S.tel.z) : 1;
+  R.ins = { ev, phase: 'goto', t: Date.now(), sentAt: Date.now(), alt: o.alt, hold: o.hold, tx, ty,
+            timeout: 2 * (d0 + dz0) / R.v + CFG.inspect.slack };
+  renderRouteTable();
+  const ok = await navigate({ x: tx, y: ty, z: o.alt, yaw: R.yaw, speed: R.v, frame_id: CFG.frame, auto_arm: false },
+                           'Inspect ' + insName(ev) + ' at ' + o.alt + ' m');
+  if (run === R.run && R.state === 'inspect' && R.ins && R.ins.ev === ev && !ok) inspectFinish('navigate rejected', 'err');
+}
+function inspectTick(t, now) {
+  const I = R.ins;
+  if (!I) { inspectResume(); return; }
+  if (!Number.isFinite(t.x) || !Number.isFinite(t.y)) { R.dist = NaN; return; }
+  if (I.phase === 'goto') {
+    const nx = clamp(I.ev.x, -fenceX, fenceX), ny = clamp(I.ev.y, -fenceY, fenceY);
+    if (Math.hypot(nx - I.tx, ny - I.ty) > CFG.inspect.renavMove && now - I.sentAt > 2000) {   // object position refined
+      I.tx = nx; I.ty = ny; I.sentAt = now;
+      navigate({ x: nx, y: ny, z: I.alt, yaw: R.yaw, speed: R.v, frame_id: CFG.frame, auto_arm: false }, 'Inspect: refined target');
+    }
+    const d = Math.hypot(t.x - I.tx, t.y - I.ty), dz = Number.isFinite(t.z) ? Math.abs(t.z - I.alt) : Infinity;
+    R.dist = d;
+    if (d <= CFG.inspect.arriveTol && dz <= CFG.inspect.zTol) {
+      I.phase = 'settle'; I.t = now; renderRouteTable();
+      log('Inspection: over ' + insName(I.ev) + ' (' + d.toFixed(2) + ' m, z ' + t.z.toFixed(2) + ' m), holding ' + I.hold + ' s', 'ok');
+    } else if (now - I.t > I.timeout * 1000) inspectFinish('not reached within ' + I.timeout.toFixed(0) + ' s, skipped', 'err');
+  } else if (I.phase === 'settle' && now - I.t >= I.hold * 1000) {
+    I.phase = 'capture'; renderRouteTable();
+    const run = R.run;
+    dsSend({ cmd: 'capture', class_name: I.ev.cls, object_id: I.ev.id, score: I.ev.score, x: I.ev.x, y: I.ev.y, z: t.z,
+             dedup_radius: CFG.inspect.radius * 0.75, note: 'route inspection' }).then(ok => {
+      if (run !== R.run || R.ins !== I) return;
+      const lc = (DS.st && DS.st.last_capture) || {};
+      if (!ok) inspectFinish('photo NOT saved (no reply from dataset_server)', 'err');
+      else if (lc.status === 'saved') inspectFinish('photo saved: ' + lc.name, 'ok');
+      else if (lc.status === 'duplicate') inspectFinish('already photographed (' + lc.of + ')', 'info');
+      else inspectFinish('photo failed: ' + (lc.error || lc.status || 'unknown'), 'err');
+    });
+  }
+}
+function inspectFinish(msg, kind) {
+  const I = R.ins;
+  R.ins = null;
+  if (I) R.inspected.push({ id: I.ev.id, cls: I.ev.cls, x: I.ev.x, y: I.ev.y });   // also when skipped: no endless retries
+  log('Inspection ' + (I ? insName(I.ev) : '') + ': ' + msg, kind);
+  if (R.state !== 'inspect') return;
+  if (R.queue.length) { inspectStart(); return; }
+  inspectResume();
+}
+function inspectResume() {
+  R.state = 'fly';
+  R.i = Math.max(-1, (R.resumeI >= 0 ? R.resumeI : R.i) - 1);   // routeNext() flies to that waypoint again
+  log('Route: back to waypoint ' + (R.i + 2) + '/' + R.wps.length);
+  routeNext();
+}
+$('rtInsForget').onclick = () => { R.inspected = []; log('Inspection: forgot the objects inspected in this session (photos on the drone still count)'); };
+
+/* ====================== Detections tab (photos stored on the drone) ====================== */
+CFG.gsPort = 8020;
+const capBase = () => 'http://' + $('host').value.trim() + ':' + CFG.gsPort + '/captures/';
+function renderGallery() {
+  const st = DS.st, alive = st && Date.now() - DS.stAt < 3500, caps = (st && st.captures) || [], total = (st && st.captures_total) || 0;
+  $('gcCount').textContent = '(' + total + ')';
+  $('gcBadge').textContent = total ? total : '';
+  $('gcInfo').textContent = !S.link ? 'not connected' : alive ? 'stored on the drone in ~/ground_station/captures' : 'dataset_server offline';
+  $('gcSnap').disabled = !S.link || !alive;
+  const key = caps.map(c => c.name).join(',') + '|' + $('host').value;
+  if (key === DS.galKey) return;
+  DS.galKey = key;
+  $('gcGrid').innerHTML = caps.length ? caps.map(c => {
+    const b = capBase() + encodeURIComponent(c.name) + '/', col = clsColor(c.class_name);
+    return '<div class="gcard"><div class="im"><a href="' + b + 'rgb.jpg" target="_blank"><img class="main" loading="lazy" alt="" src="' + b + 'rgb.jpg"></a>' +
+      (c.files && c.files.thermal ? '<a href="' + b + 'thermal.png" target="_blank" title="thermal"><img class="th" loading="lazy" alt="" src="' + b + 'thermal.png"></a>' : '') +
+      '</div><div class="cap"><div><span class="tag" style="background:' + col + '33;color:' + col + '">' + escapeHtml(c.class_name) +
+      (c.object_id != null ? ' #' + escapeHtml(c.object_id) : '') + '</span>' + (c.score != null ? '  score ' + (+c.score).toFixed(2) : '') + '</div>' +
+      '<div>map x ' + fmt(c.x) + '  y ' + fmt(c.y) + '  · alt ' + fmt(c.alt) + ' m</div>' +
+      '<div>' + escapeHtml(String(c.time_iso || '').replace('T', ' ')) + ' · ' + (c.boxes_drawn || 0) + ' box(es)</div>' +
+      '<div class="note">' + escapeHtml(c.name) + (c.note ? ' · ' + escapeHtml(c.note) : '') + '</div></div></div>';
+  }).join('') : '<div class="note" style="padding:20px">No photos yet. Start a route with "Inspect bonfires" ticked, or press Capture now.</div>';
+}
+$('gcSnap').onclick = async () => {
+  const t = S.telOk ? S.tel : {};
+  log('Capture now');
+  if (!(await dsSend({ cmd: 'capture', class_name: 'manual', x: t.x, y: t.y, z: t.z, dedup_radius: 0, note: 'manual' }))) return;
+  const lc = (DS.st && DS.st.last_capture) || {};
+  log('Capture: ' + (lc.status === 'saved' ? 'saved ' + lc.name : (lc.error || lc.status)), lc.status === 'saved' ? 'ok' : 'err');
+};
+setInterval(renderGallery, 1000);
+
+/* ====================== views (tabs) ====================== */
+const VIEWS = { flight: 'Flight', dataset: 'Dataset', detections: 'Detections' };
+S.view = VIEWS[store.get('airael.view', 'flight')] ? store.get('airael.view', 'flight') : 'flight';
+function setView(v) {
+  S.view = VIEWS[v] ? v : 'flight';
+  store.set('airael.view', S.view);
+  for (const k in VIEWS) { $('view' + VIEWS[k]).classList.toggle('hidden', S.view !== k); $('tab' + VIEWS[k]).classList.toggle('on', S.view === k); }
+  if (S.view === 'flight') resize();
+  if (S.view === 'detections') { DS.galKey = ''; renderGallery(); }
+  setCamera(); dsPreviews();
+}
+for (const k in VIEWS) $('tab' + VIEWS[k]).onclick = () => setView(k);
+
+/* ====================== start ====================== */
+setView(S.view); resize(); requestAnimationFrame(draw); setTarget(0, 0); connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# Laptop (Linux, Python 3.11; rknn-toolkit2 2.3.2 supports Python 3.8-3.12): dataset tools, training, export to .rknn
+# Install CPU torch first to avoid the large CUDA build:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+ultralytics
+onnx==1.16.1
+onnxslim>=0.1.82
+rknn-toolkit2==2.3.2
+pillow
+pyyaml

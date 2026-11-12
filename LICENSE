@@ -1,0 +1,39 @@
+MIT License
+
+Copyright (c) 2026 Team Brics (Omar Alblooshi, Mohammed Alhammadi)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+Third-party components (not included in this repository; they keep their own licences)
+
+- SKYRIS Technic software image (ROS packages technic, aruco_pose, yolo_face and
+  their configuration). drone/fire_detector_node.py was written by the team; its
+  environment set-up lines (site paths, LD_LIBRARY_PATH, ROS logging workaround)
+  follow the SKYRIS yolo_face RKNN node. The licence of the SKYRIS software was
+  not available to the team, so the redistribution terms of that portion have not
+  been checked.
+- ROS Noetic, rosbridge, web_video_server, cv_bridge, tf2 (BSD-3-Clause)
+- OpenCV (Apache-2.0), NumPy (BSD-3-Clause), Pillow (MIT-CMU)
+- Rockchip RKNN-Toolkit2 / RKNN-Toolkit-Lite2 and librknnrt (Rockchip licence)
+- Ultralytics YOLOv8 (AGPL-3.0): used on the laptop for training and export only;
+  no Ultralytics code is part of this repository or runs on the drone. The trained
+  model weights are not included.
+- PX4 Autopilot (BSD-3-Clause), MAVROS (BSD-3-Clause)
+- openpyxl (MIT): only for tools/build_module_c_workbook.py

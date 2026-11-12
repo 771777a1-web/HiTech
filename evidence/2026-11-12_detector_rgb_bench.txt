@@ -1,0 +1,76 @@
+Team Brics: detector rate on the drone with the deployed RGB model (bench, drone not flying)
+Date: 12 Nov 2026. Source: terminal output pasted by the team in the working chat "NPU and fire detector diagnostics".
+Copied verbatim; only the shell prompt (user@host:path$) was replaced by "$".
+Model ~/airael/models/fire-rgb-rk3588.rknn, classes [campfire, tree], input /main_camera/image_raw, size 320.
+
+$ ~/airael/airael.sh stop
+Stopping Airael services
+  ✓ geoloc stopped
+  ✓ detector stopped
+  ✓ dataset stopped
+  ✓ thermal stopped
+  ✓ gs stopped
+(the Skyris stack keeps running; its rknn_face demo comes back at the next technic restart)
+$ pkill -f "roslaunch yolo_face fire_detector"; sleep 2; pkill -f fire_detector_node.py; sleep 1
+$ ps -eo pid,args | grep -E 'fire_detector' | grep -v grep || echo "no detector running"
+no detector running
+$ MODEL=~/airael/models/fire-rgb-rk3588.rknn CLASSES='[campfire, tree]' DET_INPUT=/main_camera/image_raw ~/airael/airael.sh start --detector
+Starting Airael services (14:19:35)
+Waiting for the Skyris stack (ROS master + rosbridge) …
+  ✓ ROS master and rosbridge are up
+  ✓ stopped a hand-started page server on :8020 (taking over)
+  ✓ gs started (pid 342884, log /home/orangepi/airael/logs/gs.log)
+  ✓ thermal started (pid 342936, log /home/orangepi/airael/logs/thermal.log)
+  ✓ dataset started (pid 343013, log /home/orangepi/airael/logs/dataset.log)
+  ✓ detector started (pid 343140, log /home/orangepi/airael/logs/detector.log)
+  ✓ geoloc started (pid 343222, log /home/orangepi/airael/logs/geoloc.log)
+
+Status (14:19:43)
+  ✓ gs        running, pid 342884
+  ✓ thermal   running, pid 342936
+  ✓ dataset   running, pid 343013
+  ✓ detector  running, pid 343140
+  ✓ geoloc    running, pid 343222
+  ✓ page:     http://192.168.50.2:8020/
+  ✓ rosbridge :9090
+  ✓ topic /airael/thermal/compressed
+  ✓ topic /airael/dataset/status
+  ✓ topic /fire/detections
+  ✓ topic /fire/events (geolocation)
+$ sleep 10; rosparam get /fire_detector/input_topic
+/main_camera/image_raw
+
+$ timeout 6 rostopic hz /fire/detections
+subscribed to [/fire/detections]
+average rate: 30.621
+	min: 0.017s max: 0.058s std dev: 0.00996s window: 31
+average rate: 30.204
+	min: 0.017s max: 0.060s std dev: 0.00930s window: 60
+average rate: 29.974
+	min: 0.016s max: 0.064s std dev: 0.01020s window: 90
+average rate: 30.150
+	min: 0.016s max: 0.064s std dev: 0.00980s window: 121
+average rate: 30.056
+	min: 0.016s max: 0.064s std dev: 0.00997s window: 150
+average rate: 30.092
+	min: 0.016s max: 0.064s std dev: 0.00982s window: 158
+$ ~/airael/airael.sh logs detector | grep -E 'model outputs|FPS' | tail -4
+[I] fire_detector: FPS 30.1  last proc 23.8 ms  dets 0
+[I] fire_detector: FPS 30.0  last proc 26.2 ms  dets 0
+[I] fire_detector: FPS 30.1  last proc 20.7 ms  dets 0
+[I] fire_detector: FPS 30.0  last proc 19.4 ms  dets 0
+$ ~/airael/airael.sh logs geoloc | tail -5
+[INFO] [1794464345.320634]: fire_geoloc: 60 detections, 7 located, 0 tf failures, 53 rays missed the floor, 4 events, 1 objects
+[INFO] [1794464355.320697]: fire_geoloc: 67 detections, 7 located, 0 tf failures, 60 rays missed the floor, 4 events, 1 objects
+[INFO] [1794464365.321130]: fire_geoloc: 74 detections, 7 located, 0 tf failures, 67 rays missed the floor, 4 events, 1 objects
+
+===== 2026-11-12 14:19:41  start: python3 /home/orangepi/airael/fire_geoloc.py _camera_info:=/main_camera/camera_info _hfov_deg:=0
+
+What this shows and what it does not:
+- The detector runs on the NPU on the RGB camera at about 30 processed frames per second (the camera rate),
+  19-26 ms per frame. This is a bench measurement, not MC4: MC4 is the share of 1-s windows >= 10 FPS
+  during a flight, from a recorded bag (drone/flight_report.py, line T2).
+- Geolocation started and produced 1 object (4 events), but most rays "missed the floor" because the drone
+  was not held at least 1 m above the objects (defect D10). This is not an MC5 measurement.
+- airael.sh started at the time of this run passed DATASET_PY=~/Folder1/dataset_server.py (old location);
+  the repository version uses ~/airael/dataset_server.py.

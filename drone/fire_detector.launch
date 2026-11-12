@@ -1,0 +1,38 @@
+<launch>
+  <!-- Team Brics (Airael) fire detector on the RK3588 NPU.
+       Installed by drone/install_drone.sh into the Skyris package yolo_face (launch/ and scripts/).
+       Normally started by airael.sh with the detector option. By hand:
+         Downward RGB camera, deployed model (default):
+           roslaunch yolo_face fire_detector.launch model:=/home/orangepi/airael/models/fire-rgb-rk3588.rknn
+         Thermal camera (a model trained on thermal frames):
+           roslaunch yolo_face fire_detector.launch model:=/home/orangepi/airael/models/fire-rk3588.rknn classes:="[bonfire, tree]" input:=/second_camera/second_camera/image_raw
+         Skyris demo model (FPS check only):
+           roslaunch yolo_face fire_detector.launch model:=$(rospack find yolo_face)/models/best-rk3588.rknn size:=640 classes:="[cap]"
+  -->
+  <arg name="model"   default="$(env HOME)/airael/models/fire-rgb-rk3588.rknn"/>
+  <arg name="size"    default="320"/>
+  <arg name="classes" default="[campfire, tree]"/>
+  <arg name="conf"    default="0.5"/>
+  <arg name="input"   default="/main_camera/image_raw"/>
+
+  <env name="PYTHONNOUSERSITE" value="1"/>
+  <env name="LD_LIBRARY_PATH"
+       value="/usr/lib/aarch64-linux-gnu:/usr/lib:/usr/local/lib:/home/orangepi/ros_lib_ws/install/lib:/home/orangepi/ros_lib_ws/devel/lib:/opt/opencv-4.8/lib:$(env LD_LIBRARY_PATH)"/>
+
+  <!-- respawn: needed for the E2E fault test (detector killed, back within 5 s) -->
+  <node pkg="yolo_face" type="fire_detector_node.py" name="fire_detector" output="screen"
+        respawn="true" respawn_delay="2">
+    <param name="model_path"       value="$(arg model)"/>
+    <param name="input_topic"      value="$(arg input)"/>
+    <param name="detections_topic" value="/fire/detections"/>
+    <param name="annotated_topic"  value="/fire/annotated"/>
+    <param name="input_size"       value="$(arg size)"/>
+    <param name="conf_thres"       value="$(arg conf)"/>
+    <param name="iou_thres"        value="0.45"/>
+    <param name="letterbox"        value="true"/>
+    <param name="minmax_norm"      value="false"/>
+    <param name="use_rgb"          value="true"/>
+    <param name="npu_core"         value="auto"/>
+    <rosparam param="class_names" subst_value="true">$(arg classes)</rosparam>
+  </node>
+</launch>

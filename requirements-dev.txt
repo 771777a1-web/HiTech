@@ -1,0 +1,5 @@
+# Running the tests on any computer (no ROS, no NPU needed): python3 -m unittest discover -s tests -v
+numpy
+pillow
+# optional: opencv-python (enables the detector letterbox test and the undistortion test)
+# optional: openpyxl (only to rebuild docs/Module_C_Economic_Model.xlsx with tools/build_module_c_workbook.py)
